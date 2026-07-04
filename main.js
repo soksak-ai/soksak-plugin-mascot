@@ -40377,6 +40377,9 @@ var Live2DRenderer = class {
   ro = null;
   attachedTo = null;
   mouthOn = false;
+  mouthLevel = null;
+  // 실측 진폭(사이드카) — null 이면 의사 파형 모드
+  mouthSmooth = 0;
   urlCache = /* @__PURE__ */ new Map();
   info = null;
   onVisibility = () => {
@@ -40504,19 +40507,35 @@ var Live2DRenderer = class {
     const self2 = this;
     mm.update = function(coreModel, now) {
       const r2 = orig(coreModel, now);
-      if (self2.mouthOn && coreModel && typeof coreModel.setParameterValueById === "function") {
+      const set = coreModel?.setParameterValueById;
+      if (typeof set !== "function") return r2;
+      if (self2.mouthLevel != null) {
+        self2.mouthSmooth += (self2.mouthLevel - self2.mouthSmooth) * 0.35;
+        set.call(coreModel, MOUTH_PARAM, Math.max(0, Math.min(1, self2.mouthSmooth)));
+      } else if (self2.mouthOn) {
         const t2 = performance.now() / 1e3;
         const v2 = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t2 * 9.1) + 0.2 * Math.sin(t2 * 23.7)));
-        coreModel.setParameterValueById(MOUTH_PARAM, v2);
+        set.call(coreModel, MOUTH_PARAM, v2);
       }
       return r2;
     };
   }
   setMouth(on) {
     this.mouthOn = on;
-    if (!on && this.model) {
+    if (!on && this.mouthLevel == null && this.model) {
       const core = this.model.internalModel.coreModel;
       core?.setParameterValueById?.(MOUTH_PARAM, 0);
+    }
+  }
+  /** 실측 진폭 입모양(0..1). null = 실측 모드 해제(의사 파형/무음으로 복귀). */
+  setMouthLevel(v2) {
+    this.mouthLevel = v2;
+    if (v2 == null) {
+      this.mouthSmooth = 0;
+      if (this.model && !this.mouthOn) {
+        const core = this.model.internalModel.coreModel;
+        core?.setParameterValueById?.(MOUTH_PARAM, 0);
+      }
     }
   }
   /** 표정 적용 — "neutral" 은 표정 리셋. 알려진 표정 Name/인덱스만 적용. */
@@ -40751,6 +40770,244 @@ var SpeechQueue = class {
   }
 };
 
+// src/sidecarTts.ts
+var SpeechSidecarProc = class {
+  constructor(app, opts) {
+    this.app = app;
+    this.opts = opts;
+  }
+  handle = null;
+  buf = "";
+  nextId = 1;
+  pending = /* @__PURE__ */ new Map();
+  subs = [];
+  starting = null;
+  configured() {
+    return this.opts.bin().length > 0 && this.opts.modelDir().length > 0;
+  }
+  running() {
+    return this.handle != null;
+  }
+  failAll(message) {
+    for (const p3 of this.pending.values()) p3.onDone(false, message);
+    this.pending.clear();
+  }
+  teardown() {
+    for (const s2 of this.subs) s2.dispose();
+    this.subs = [];
+    this.handle = null;
+    this.buf = "";
+  }
+  async ensure() {
+    if (this.handle != null) return true;
+    if (this.starting) return this.starting;
+    this.starting = this.start().finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
+  async start() {
+    const proc = this.app.process;
+    if (!proc || !this.configured()) return false;
+    try {
+      const handle = await proc.spawn(this.opts.bin(), [
+        "--model-dir",
+        this.opts.modelDir(),
+        "--engine",
+        this.opts.engine() || "vits"
+      ]);
+      this.handle = handle;
+      this.subs.push(
+        proc.onData(handle, (bytes) => this.feed(bytes)),
+        proc.onExit(handle, (code) => {
+          console.warn("[vtuber] speech sidecar exited:", code);
+          this.failAll(`sidecar exited (${code})`);
+          this.teardown();
+        })
+      );
+      return true;
+    } catch (e2) {
+      console.error("[vtuber] speech sidecar spawn \uC2E4\uD328:", e2);
+      this.teardown();
+      return false;
+    }
+  }
+  feed(bytes) {
+    this.buf += new TextDecoder().decode(bytes);
+    let nl;
+    while ((nl = this.buf.indexOf("\n")) >= 0) {
+      const line = this.buf.slice(0, nl).trim();
+      this.buf = this.buf.slice(nl + 1);
+      if (!line) continue;
+      let msg;
+      try {
+        msg = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const p3 = this.pending.get(msg.id);
+      if (!p3) continue;
+      if (typeof msg.pcmBase64 === "string") {
+        const bin = atob(msg.pcmBase64);
+        const pcm = new Uint8Array(bin.length);
+        for (let i2 = 0; i2 < bin.length; i2++) pcm[i2] = bin.charCodeAt(i2);
+        p3.onChunk(pcm, msg.sampleRate ?? 22050);
+      }
+      if (msg.done === true || msg.ok === false) {
+        this.pending.delete(msg.id);
+        p3.onDone(msg.ok === true, msg.message);
+      }
+    }
+  }
+  /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
+  async tts(text, speed, p3) {
+    if (!await this.ensure() || this.handle == null) return null;
+    const id = this.nextId++;
+    this.pending.set(id, p3);
+    try {
+      await this.app.process.write(
+        this.handle,
+        JSON.stringify({ id, op: "tts", stream: true, text, speed }) + "\n"
+      );
+      return id;
+    } catch (e2) {
+      this.pending.delete(id);
+      p3.onDone(false, String(e2));
+      return null;
+    }
+  }
+  abandon(id) {
+    this.pending.delete(id);
+  }
+  dispose() {
+    const h2 = this.handle;
+    this.teardown();
+    if (h2 != null) void this.app.process?.kill(h2).catch(() => {
+    });
+    this.failAll("disposed");
+  }
+};
+var SidecarTts = class {
+  constructor(app, opts, onLevel) {
+    this.onLevel = onLevel;
+    this.proc = new SpeechSidecarProc(app, opts);
+  }
+  proc;
+  ctx = null;
+  analyser = null;
+  playing = /* @__PURE__ */ new Set();
+  raf = 0;
+  curReq = null;
+  available() {
+    return this.proc.configured();
+  }
+  running() {
+    return this.proc.running();
+  }
+  ensureCtx() {
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.connect(this.ctx.destination);
+    }
+    return { ctx: this.ctx, analyser: this.analyser };
+  }
+  levelLoop() {
+    if (this.raf) return;
+    const data = new Uint8Array(256);
+    const tick = () => {
+      if (this.playing.size === 0) {
+        this.raf = 0;
+        this.onLevel(0);
+        return;
+      }
+      this.analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i2 = 0; i2 < data.length; i2++) {
+        const d2 = (data[i2] - 128) / 128;
+        sum += d2 * d2;
+      }
+      this.onLevel(Math.min(1, Math.sqrt(sum / data.length) / 0.35));
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+  speak(text, _lang) {
+    return new Promise((resolve2) => {
+      const { ctx, analyser } = this.ensureCtx();
+      if (ctx.state === "suspended") void ctx.resume();
+      let nextAt = 0;
+      let done = false;
+      let reqId = null;
+      const finish = () => {
+        if (this.curReq === reqId) this.curReq = null;
+        resolve2();
+      };
+      const maybeFinish = () => {
+        if (done && this.playing.size === 0) finish();
+      };
+      void this.proc.tts(text, 1, {
+        onChunk: (pcm, sampleRate) => {
+          const n2 = pcm.byteLength >> 1;
+          if (n2 === 0) return;
+          const i16 = new Int16Array(pcm.buffer, pcm.byteOffset, n2);
+          const buf = ctx.createBuffer(1, n2, sampleRate);
+          const ch = buf.getChannelData(0);
+          for (let i2 = 0; i2 < n2; i2++) ch[i2] = i16[i2] / 32768;
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(analyser);
+          const now = ctx.currentTime;
+          const at = Math.max(now + 0.02, nextAt);
+          nextAt = at + buf.duration;
+          this.playing.add(src);
+          src.onended = () => {
+            this.playing.delete(src);
+            maybeFinish();
+          };
+          src.start(at);
+          this.levelLoop();
+        },
+        onDone: (ok, message) => {
+          done = true;
+          if (!ok && message) console.warn("[vtuber] sidecar tts:", message);
+          maybeFinish();
+        }
+      }).then((id) => {
+        reqId = id;
+        this.curReq = id;
+        if (id == null) {
+          done = true;
+          maybeFinish();
+        }
+      });
+    });
+  }
+  cancel() {
+    if (this.curReq != null) {
+      this.proc.abandon(this.curReq);
+      this.curReq = null;
+    }
+    for (const src of this.playing) {
+      try {
+        src.stop();
+      } catch {
+      }
+    }
+    this.playing.clear();
+    this.onLevel(0);
+  }
+  dispose() {
+    this.cancel();
+    this.proc.dispose();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    void this.ctx?.close().catch(() => {
+    });
+    this.ctx = null;
+  }
+};
+
 // src/acp.ts
 var CORE = "plugin.soksak-plugin-agents-acp.";
 var AcpChat = class {
@@ -40864,17 +41121,42 @@ var VtuberEngine = class {
         return typeof v2 === "string" ? v2 : "";
       }
     });
+    const str = (key) => {
+      const v2 = this.app.settings.get(key);
+      return typeof v2 === "string" ? v2.trim() : "";
+    };
+    this.sidecar = new SidecarTts(
+      app,
+      {
+        bin: () => str("speechSidecarBin"),
+        modelDir: () => str("speechModelDir"),
+        engine: () => str("speechEngine") || "vits"
+      },
+      (v2) => this.renderer.setMouthLevel(v2 > 0 || this.speech.speaking ? v2 : null)
+    );
+    const self2 = this;
+    const composite = {
+      available: () => self2.sidecar.available() || self2.tts.available(),
+      speak: (text, lang) => self2.usingSidecar() ? self2.sidecar.speak(text, lang) : self2.tts.speak(text, lang),
+      cancel: () => {
+        self2.sidecar.cancel();
+        self2.tts.cancel();
+      }
+    };
     this.speech = new SpeechQueue(
-      this.tts,
+      composite,
       {
         onStart: (u2) => {
           if (u2.emotion) void this.renderer.setExpression(this.mapEmotion(u2.emotion));
-          this.renderer.setMouth(true);
+          if (!this.usingSidecar()) this.renderer.setMouth(true);
           this.emit({ kind: "subtitle", text: u2.text });
         },
         onEnd: (_u, last) => {
           this.renderer.setMouth(false);
-          if (last) this.emit({ kind: "subtitle", text: "" });
+          if (last) {
+            this.renderer.setMouthLevel(null);
+            this.emit({ kind: "subtitle", text: "" });
+          }
         }
       },
       {
@@ -40886,12 +41168,16 @@ var VtuberEngine = class {
   settings;
   renderer;
   tts;
+  sidecar;
   speech;
   acp;
   listeners = /* @__PURE__ */ new Set();
   chatLog = [];
   turnBusy = false;
   lang;
+  usingSidecar() {
+    return this.sidecar.available();
+  }
   /** 코어 선언형 설정의 모델 경로 — 단일 진실(설정 모달·plugin.settings.set·model.load 전부 여기로 수렴). */
   configuredModelPath() {
     const v2 = this.app.settings.get("modelPath");
@@ -40977,7 +41263,9 @@ var VtuberEngine = class {
       emotionMap: this.emotionMap(),
       mascot: s2.mascotOn,
       tts: s2.ttsEnabled,
-      ttsAvailable: this.tts.available(),
+      ttsAvailable: this.tts.available() || this.sidecar.available(),
+      speechEngine: this.usingSidecar() ? "sidecar" : "os",
+      sidecarRunning: this.sidecar.running(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
       agentConnected: this.acp.connected(),
@@ -41100,6 +41388,7 @@ var VtuberEngine = class {
   }
   dispose() {
     this.speech.cancel();
+    this.sidecar.dispose();
     this.acp.dispose();
     this.renderer.dispose();
     this.listeners.clear();

@@ -17,6 +17,7 @@
     "ui:overlay:screen",
     "commands",
     "programs",
+    "process",
     "network",
     "data",
     "notify",
@@ -95,6 +96,49 @@
       "description": {
         "en": "OS voice name (partial match, e.g. \"Yuna\"). Empty = locale-preferred voice. List candidates with vtuber.state {\"voices\":true}.",
         "ko": "OS 보이스 이름(부분일치, 예: \"Yuna\"). 비우면 로케일 선호 보이스. 후보 목록은 vtuber.state {\"voices\":true}."
+      }
+    },
+    {
+      "key": "speechSidecarBin",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Speech sidecar binary",
+        "ko": "음성 사이드카 바이너리"
+      },
+      "description": {
+        "en": "Path to soksak-sidecar-speech-sherpa. When set together with the model dir, local neural TTS replaces the OS voice (real lip-sync).",
+        "ko": "soksak-sidecar-speech-sherpa 바이너리 경로. 모델 디렉토리와 함께 지정하면 로컬 신경 TTS 가 OS 음성을 대체한다(실측 립싱크)."
+      }
+    },
+    {
+      "key": "speechModelDir",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Speech model dir",
+        "ko": "음성 모델 디렉토리"
+      },
+      "description": {
+        "en": "sherpa-onnx TTS model directory (*.onnx, tokens.txt, …). Check the model's own license before use.",
+        "ko": "sherpa-onnx TTS 모델 디렉토리(*.onnx, tokens.txt, …). 모델 자체 라이선스를 확인하고 사용."
+      }
+    },
+    {
+      "key": "speechEngine",
+      "type": "enum",
+      "default": "vits",
+      "enum": [
+        "vits",
+        "kokoro"
+      ],
+      "title": {
+        "en": "Speech engine",
+        "ko": "음성 엔진"
+      },
+      "description": {
+        "en": "sherpa-onnx model family of the speech model dir.",
+        "ko": "음성 모델 디렉토리의 sherpa-onnx 모델 계열."
       }
     }
   ],

@@ -4,7 +4,8 @@
 import type { HostApp, Utterance } from "@/types";
 import { SettingsStore } from "@/settings";
 import { Live2DRenderer, type LoadedModelInfo } from "@/renderer";
-import { SpeechQueue, SpeechSynthesisTts } from "@/tts";
+import { SpeechQueue, SpeechSynthesisTts, type TtsEngine } from "@/tts";
+import { SidecarTts } from "@/sidecarTts";
 import { AcpChat } from "@/acp";
 import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion, personaPreamble } from "@/pipeline";
 import * as cubism from "@/cubism";
@@ -23,6 +24,7 @@ export class VtuberEngine {
   readonly settings: SettingsStore;
   readonly renderer: Live2DRenderer;
   private tts!: SpeechSynthesisTts;
+  private sidecar!: SidecarTts;
   private speech: SpeechQueue;
   private acp: AcpChat;
   private listeners = new Set<(e: EngineEvent) => void>();
@@ -45,17 +47,44 @@ export class VtuberEngine {
         return typeof v === "string" ? v : "";
       },
     });
+    const str = (key: string) => {
+      const v = this.app.settings.get(key);
+      return typeof v === "string" ? v.trim() : "";
+    };
+    this.sidecar = new SidecarTts(
+      app,
+      {
+        bin: () => str("speechSidecarBin"),
+        modelDir: () => str("speechModelDir"),
+        engine: () => str("speechEngine") || "vits",
+      },
+      (v) => this.renderer.setMouthLevel(v > 0 || this.speech.speaking ? v : null),
+    );
+    // 합성 경로 선택 — 사이드카(로컬 신경 TTS, 실측 립싱크)가 설정돼 있으면 우선, 아니면 OS 음성.
+    const self = this;
+    const composite: TtsEngine = {
+      available: () => self.sidecar.available() || self.tts.available(),
+      speak: (text, lang) =>
+        self.usingSidecar() ? self.sidecar.speak(text, lang) : self.tts.speak(text, lang),
+      cancel: () => {
+        self.sidecar.cancel();
+        self.tts.cancel();
+      },
+    };
     this.speech = new SpeechQueue(
-      this.tts,
+      composite,
       {
         onStart: (u) => {
           if (u.emotion) void this.renderer.setExpression(this.mapEmotion(u.emotion));
-          this.renderer.setMouth(true);
+          if (!this.usingSidecar()) this.renderer.setMouth(true); // 사이드카는 실측 레벨이 구동
           this.emit({ kind: "subtitle", text: u.text });
         },
         onEnd: (_u, last) => {
           this.renderer.setMouth(false);
-          if (last) this.emit({ kind: "subtitle", text: "" });
+          if (last) {
+            this.renderer.setMouthLevel(null);
+            this.emit({ kind: "subtitle", text: "" });
+          }
         },
       },
       {
@@ -63,6 +92,10 @@ export class VtuberEngine {
         lang: () => this.lang,
       },
     );
+  }
+
+  usingSidecar(): boolean {
+    return this.sidecar.available();
   }
 
   /** 코어 선언형 설정의 모델 경로 — 단일 진실(설정 모달·plugin.settings.set·model.load 전부 여기로 수렴). */
@@ -162,7 +195,9 @@ export class VtuberEngine {
       emotionMap: this.emotionMap(),
       mascot: s.mascotOn,
       tts: s.ttsEnabled,
-      ttsAvailable: this.tts.available(),
+      ttsAvailable: this.tts.available() || this.sidecar.available(),
+      speechEngine: this.usingSidecar() ? "sidecar" : "os",
+      sidecarRunning: this.sidecar.running(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
       agentConnected: this.acp.connected(),
@@ -298,6 +333,7 @@ export class VtuberEngine {
 
   dispose(): void {
     this.speech.cancel();
+    this.sidecar.dispose();
     this.acp.dispose();
     this.renderer.dispose();
     this.listeners.clear();

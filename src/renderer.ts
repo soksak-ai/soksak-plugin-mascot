@@ -40,6 +40,8 @@ export class Live2DRenderer {
   private ro: ResizeObserver | null = null;
   private attachedTo: HTMLElement | null = null;
   private mouthOn = false;
+  private mouthLevel: number | null = null; // 실측 진폭(사이드카) — null 이면 의사 파형 모드
+  private mouthSmooth = 0;
   private urlCache = new Map<string, string>();
   info: LoadedModelInfo | null = null;
 
@@ -190,11 +192,17 @@ export class Live2DRenderer {
     const self = this;
     mm.update = function (coreModel: unknown, now: number) {
       const r = orig(coreModel, now);
-      if (self.mouthOn && coreModel && typeof (coreModel as any).setParameterValueById === "function") {
+      const set = (coreModel as any)?.setParameterValueById;
+      if (typeof set !== "function") return r;
+      if (self.mouthLevel != null) {
+        // 실측 진폭(사이드카 재생) — 저역 통과로 떨림 완화
+        self.mouthSmooth += (self.mouthLevel - self.mouthSmooth) * 0.35;
+        set.call(coreModel, MOUTH_PARAM, Math.max(0, Math.min(1, self.mouthSmooth)));
+      } else if (self.mouthOn) {
         const t = performance.now() / 1000;
-        // 두 사인 합성 + 클램프 — 무작위 대신 결정적 파형(부드럽고 재현 가능)
+        // 두 사인 합성 + 클램프 — 무작위 대신 결정적 파형(부드럽고 재현 가능). OS TTS 폴백용.
         const v = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t * 9.1) + 0.2 * Math.sin(t * 23.7)));
-        (coreModel as any).setParameterValueById(MOUTH_PARAM, v);
+        set.call(coreModel, MOUTH_PARAM, v);
       }
       return r;
     };
@@ -202,9 +210,21 @@ export class Live2DRenderer {
 
   setMouth(on: boolean): void {
     this.mouthOn = on;
-    if (!on && this.model) {
+    if (!on && this.mouthLevel == null && this.model) {
       const core = (this.model.internalModel as { coreModel?: any }).coreModel;
       core?.setParameterValueById?.(MOUTH_PARAM, 0);
+    }
+  }
+
+  /** 실측 진폭 입모양(0..1). null = 실측 모드 해제(의사 파형/무음으로 복귀). */
+  setMouthLevel(v: number | null): void {
+    this.mouthLevel = v;
+    if (v == null) {
+      this.mouthSmooth = 0;
+      if (this.model && !this.mouthOn) {
+        const core = (this.model.internalModel as { coreModel?: any }).coreModel;
+        core?.setParameterValueById?.(MOUTH_PARAM, 0);
+      }
     }
   }
 

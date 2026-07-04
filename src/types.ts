@@ -43,6 +43,18 @@ export interface HostApp {
     }): Promise<{ status: number; headers: Record<string, string>; body: string }>;
   };
   notify?: { show?: (opts: { title: string; body?: string }) => void };
+  process?: {
+    spawn(
+      cmd: string,
+      args?: string[],
+      opts?: { cwd?: string; env?: Record<string, string> },
+    ): Promise<number>;
+    write(handle: number, data: string): Promise<void>;
+    onData(handle: number, cb: (bytes: Uint8Array) => void): Disposable;
+    onStderr(handle: number, cb: (bytes: Uint8Array) => void): Disposable;
+    onExit(handle: number, cb: (code: number) => void): Disposable;
+    kill(handle: number): Promise<void>;
+  };
   settings: {
     get(key: string): unknown;
     all(): Record<string, unknown>;
