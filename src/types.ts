@@ -31,7 +31,7 @@ export interface HostApp {
     };
   };
   fs?: {
-    readText(path: string, offset?: number): Promise<{ content: string; truncated: boolean }>;
+    readText(path: string, offset?: number): Promise<{ text: string; truncated: boolean }>;
     url(path: string): Promise<string>;
   };
   network?: {
@@ -43,6 +43,11 @@ export interface HostApp {
     }): Promise<{ status: number; headers: Record<string, string>; body: string }>;
   };
   notify?: { show?: (opts: { title: string; body?: string }) => void };
+  settings: {
+    get(key: string): unknown;
+    all(): Record<string, unknown>;
+    onChange(cb: (all: Record<string, unknown>) => void): Disposable;
+  };
 }
 
 export interface ViewCtx {

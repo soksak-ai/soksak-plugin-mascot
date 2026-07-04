@@ -9,24 +9,69 @@ export interface TtsEngine {
   cancel(): void;
 }
 
+// 로케일별 선호 보이스(캐릭터에 맞는 밝은 음색 우선) — voiceName 설정이 비었을 때의 기본값.
+// OS 기본 보이스는 저음 내레이터인 경우가 많아 그대로 두면 캐릭터와 어긋난다.
+const PREFERRED_VOICES: Record<string, string[]> = {
+  ko: ["yuna", "유나", "sunhi", "heami"],
+  en: ["samantha", "jenny", "aria", "zira"],
+  ja: ["kyoko", "nanami", "o-ren"],
+  zh: ["tingting", "xiaoxiao"],
+};
+
 /** OS 음성(speechSynthesis). Linux 등 음성팩 부재 시 available()=false → 자막만. */
 export class SpeechSynthesisTts implements TtsEngine {
+  constructor(private opts?: { voiceName?: () => string }) {}
+
   available(): boolean {
     return typeof speechSynthesis !== "undefined" && typeof SpeechSynthesisUtterance !== "undefined";
+  }
+
+  /** 가용 보이스 목록(설정 voiceName 고르기용). */
+  listVoices(): Array<{ name: string; lang: string; default: boolean }> {
+    if (!this.available()) return [];
+    return speechSynthesis
+      .getVoices()
+      .map((v) => ({ name: v.name, lang: v.lang, default: v.default }));
   }
 
   private pickVoice(lang: string): SpeechSynthesisVoice | null {
     const voices = speechSynthesis.getVoices();
     if (!voices.length) return null;
+    const lc = (s: string) => s.toLowerCase();
+    // 1) 사용자 지정 voiceName(부분일치, 대소문자 무시)이 최우선
+    const wanted = lc(this.opts?.voiceName?.() ?? "").trim();
+    if (wanted) {
+      const hit = voices.find((v) => lc(v.name).includes(wanted));
+      if (hit) return hit;
+    }
     const base = lang.slice(0, 2).toLowerCase();
-    return (
-      voices.find((v) => v.lang?.toLowerCase().startsWith(lang.toLowerCase())) ??
-      voices.find((v) => v.lang?.toLowerCase().startsWith(base)) ??
-      null
+    const inLang = voices.filter(
+      (v) => lc(v.lang ?? "").startsWith(lc(lang)) || lc(v.lang ?? "").startsWith(base),
     );
+    // 2) 로케일 내 선호 음색
+    for (const pref of PREFERRED_VOICES[base] ?? []) {
+      const hit = inLang.find((v) => lc(v.name).includes(pref));
+      if (hit) return hit;
+    }
+    // 3) 로케일 일치 아무거나
+    return inLang[0] ?? null;
   }
 
-  speak(text: string, lang: string): Promise<void> {
+  /** 음성 목록은 비동기 적재(voiceschanged) — 첫 발화가 무음이 되지 않게 최대 1초 대기. */
+  private voicesReady(): Promise<void> {
+    if (speechSynthesis.getVoices().length > 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => {
+        speechSynthesis.removeEventListener("voiceschanged", done);
+        resolve();
+      };
+      speechSynthesis.addEventListener("voiceschanged", done);
+      setTimeout(done, 1000);
+    });
+  }
+
+  async speak(text: string, lang: string): Promise<void> {
+    await this.voicesReady();
     return new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(text);
       const voice = this.pickVoice(lang);

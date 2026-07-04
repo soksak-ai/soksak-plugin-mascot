@@ -29,20 +29,26 @@ export class AcpChat {
     return this.inFlight;
   }
 
-  private core(name: string, params?: Record<string, unknown>): Promise<any> {
-    return this.app.commands.execute(CORE + name, params ?? {});
+  /** 코어 커맨드 실행 + 대칭봉투 {ok,code,message,data} 해제 — 실패는 message 로 throw. */
+  private async core(name: string, params?: Record<string, unknown>): Promise<Record<string, any>> {
+    const r = await this.app.commands.execute(CORE + name, params ?? {});
+    if (!r?.ok) throw new Error(String(r?.message ?? r?.code ?? `acp ${name} failed`));
+    return (r.data ?? {}) as Record<string, any>;
   }
 
   private async ensure(): Promise<{ connId: number; sessionId: string }> {
     if (this.connId != null && this.sessionId != null)
       return { connId: this.connId, sessionId: this.sessionId };
     const c = await this.core("connect", { agent: this.agent(), permission: "deny" });
-    if (!c?.ok) throw new Error(String(c?.error ?? c?.message ?? "acp connect failed"));
-    const s = await this.core("session-new", { connId: c.connId });
-    if (!s?.ok) {
+    if (typeof c.connId !== "number") throw new Error("acp connect: connId missing");
+    let s: Record<string, any>;
+    try {
+      s = await this.core("session-new", { connId: c.connId });
+    } catch (e) {
       await this.core("disconnect", { connId: c.connId }).catch(() => {});
-      throw new Error(String(s?.error ?? s?.message ?? "acp session failed"));
+      throw e;
     }
+    if (typeof s.sessionId !== "string") throw new Error("acp session-new: sessionId missing");
     this.connId = c.connId;
     this.sessionId = s.sessionId;
     this.preambleSent = false;
@@ -74,19 +80,15 @@ export class AcpChat {
         if (t) onDelta(t);
       });
       const body = this.preambleSent ? text : preamble + text;
-      let r: any;
+      let r: Record<string, any>;
       try {
         r = await this.core("prompt", { connId, sessionId, text: body });
       } catch (e) {
-        this.drop(); // 연결 사망 추정 — 다음 턴에 재연결
+        this.drop(); // 연결 유실/실패 — 다음 턴에 재연결
         throw e;
       }
-      if (!r?.ok) {
-        this.drop();
-        throw new Error(String(r?.error ?? r?.message ?? "acp prompt failed"));
-      }
       this.preambleSent = true;
-      const final = (r.text ?? "").trim() || streamed.trim();
+      const final = String(r.text ?? "").trim() || streamed.trim();
       return { text: final, stopReason: r.stopReason };
     } finally {
       off?.dispose();

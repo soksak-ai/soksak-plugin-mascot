@@ -16,6 +16,7 @@
     "ui",
     "ui:overlay:screen",
     "commands",
+    "programs",
     "network",
     "data",
     "notify",
@@ -24,6 +25,34 @@
   "dependencies": {
     "soksak-plugin-agents-acp": "^0.1.0"
   },
+  "configuration": [
+    {
+      "key": "modelPath",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Live2D model (.model3.json)",
+        "ko": "Live2D 모델 (.model3.json)"
+      },
+      "description": {
+        "en": "Absolute path to the character's .model3.json. Changing it switches the character live.",
+        "ko": "캐릭터 .model3.json 절대 경로. 바꾸면 캐릭터가 즉시 교체된다."
+      }
+    },
+    {
+      "key": "voiceName",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Voice",
+        "ko": "목소리"
+      },
+      "description": {
+        "en": "OS voice name (partial match, e.g. \"Yuna\"). Empty = locale-preferred voice. List candidates with vtuber.state {\"voices\":true}.",
+        "ko": "OS 보이스 이름(부분일치, 예: \"Yuna\"). 비우면 로케일 선호 보이스. 후보 목록은 vtuber.state {\"voices\":true}."
+      }
+    }
+  ],
   "contributes": {
     "views": [
       {
@@ -37,6 +66,21 @@
           "content"
         ],
         "defaultPlacement": "content"
+      }
+    ],
+    "programs": [
+      {
+        "id": "vtuber",
+        "title": {
+          "en": "VTuber",
+          "ko": "브이튜버"
+        },
+        "path": {
+          "en": "Utility",
+          "ko": "유틸리티"
+        },
+        "kind": "view",
+        "view": "vtuber"
       }
     ],
     "commands": [

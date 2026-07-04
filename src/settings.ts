@@ -2,8 +2,9 @@
 // Cubism Core JS 캐시는 별도 키(cubism-core-js) — 설정과 수명이 다르다(라이선스 산출물).
 import type { HostApp } from "@/types";
 
+// 모델 경로는 여기 없다 — 코어 선언형 설정(manifest configuration "modelPath")이 단일 진실.
+// (초기 버전의 kv modelPath 는 load() 가 legacyModelPath 로 1회 노출 — 마이그레이션용.)
 export interface VtuberSettings {
-  modelPath: string | null;
   ttsEnabled: boolean;
   mascotOn: boolean;
   cubismAccepted: boolean;
@@ -12,7 +13,6 @@ export interface VtuberSettings {
 }
 
 const DEFAULTS: VtuberSettings = {
-  modelPath: null,
   ttsEnabled: true,
   mascotOn: false,
   cubismAccepted: false,
@@ -23,6 +23,8 @@ const KEY = "settings";
 
 export class SettingsStore {
   private cur: VtuberSettings = { ...DEFAULTS };
+  /** 구버전 kv 에 저장됐던 모델 경로 — 코어 설정으로 승격 마이그레이션용(1회 읽기). */
+  legacyModelPath: string | null = null;
 
   constructor(private app: HostApp) {}
 
@@ -32,8 +34,14 @@ export class SettingsStore {
 
   async load(): Promise<VtuberSettings> {
     try {
-      const raw = (await this.app.data?.kv.get(KEY)) as Partial<VtuberSettings> | null;
-      if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
+      const raw = (await this.app.data?.kv.get(KEY)) as
+        | (Partial<VtuberSettings> & { modelPath?: string | null })
+        | null;
+      if (raw && typeof raw === "object") {
+        this.legacyModelPath = typeof raw.modelPath === "string" ? raw.modelPath : null;
+        const { modelPath: _legacy, ...rest } = raw;
+        this.cur = { ...DEFAULTS, ...rest };
+      }
     } catch (e) {
       console.error("[vtuber] settings load 실패:", e);
     }

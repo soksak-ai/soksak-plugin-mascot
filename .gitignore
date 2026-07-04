@@ -12,5 +12,8 @@ vendor/
 *.model3.json
 live2dcubismcore*
 
+# 로컬 사용자 모델(커밋 금지 — 라이선스)
+models/
+
 # local-only working notes (never committed)
 secret/

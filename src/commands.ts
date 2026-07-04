@@ -24,8 +24,37 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
     description:
       "Read current plugin state: cubism runtime, loaded model, expressions, emotion map, mascot/tts/speaking/busy flags.",
     triggers: { ko: "브이튜버 상태 조회 모델 마스코트 음성" },
+    params: {
+      probe: {
+        type: "boolean",
+        description: "true = include framebuffer pixel probe (draw verification, E2E)",
+        required: false,
+      },
+      png: {
+        type: "boolean",
+        description: "true = include framebuffer PNG as base64 (visual E2E)",
+        required: false,
+      },
+      voices: {
+        type: "boolean",
+        description: "true = include available OS voices (pick one for the voiceName setting)",
+        required: false,
+      },
+    },
     returns: "state object",
-    handler: () => ({ ok: true, ...engine.state() }),
+    handler: async (p) => {
+      const st = engine.state();
+      const probe = p.probe === true ? await engine.renderer.probePixels() : undefined;
+      const png = p.png === true ? await engine.renderer.probePng() : undefined;
+      const voices = p.voices === true ? engine.listVoices() : undefined;
+      return {
+        ok: true,
+        ...st,
+        ...(probe !== undefined ? { probe } : {}),
+        ...(png !== undefined ? { png } : {}),
+        ...(voices !== undefined ? { voices } : {}),
+      };
+    },
   });
 
   reg("chat", {

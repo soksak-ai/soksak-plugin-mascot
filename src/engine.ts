@@ -22,6 +22,7 @@ export type EngineEvent =
 export class VtuberEngine {
   readonly settings: SettingsStore;
   readonly renderer: Live2DRenderer;
+  private tts!: SpeechSynthesisTts;
   private speech: SpeechQueue;
   private acp: AcpChat;
   private listeners = new Set<(e: EngineEvent) => void>();
@@ -34,8 +35,14 @@ export class VtuberEngine {
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
     this.acp = new AcpChat(app, () => "claude");
+    this.tts = new SpeechSynthesisTts({
+      voiceName: () => {
+        const v = this.app.settings.get("voiceName");
+        return typeof v === "string" ? v : "";
+      },
+    });
     this.speech = new SpeechQueue(
-      new SpeechSynthesisTts(),
+      this.tts,
       {
         onStart: (u) => {
           if (u.emotion) void this.renderer.setExpression(this.mapEmotion(u.emotion));
@@ -54,17 +61,49 @@ export class VtuberEngine {
     );
   }
 
+  /** 코어 선언형 설정의 모델 경로 — 단일 진실(설정 모달·plugin.settings.set·model.load 전부 여기로 수렴). */
+  configuredModelPath(): string {
+    const v = this.app.settings.get("modelPath");
+    return typeof v === "string" ? v.trim() : "";
+  }
+
   async init(): Promise<void> {
     await this.settings.load();
     const s = this.settings.get();
     // 캐시된 Cubism Core 는 조용히 복원(동의는 이미 이뤄짐) — 미동의/미캐시면 설정 카드가 안내.
     if (s.cubismAccepted) await cubism.ensureFromCache(this.app);
-    if (s.modelPath && cubism.cubismLoaded()) {
+
+    // 구버전 kv modelPath → 코어 설정 승격(1회 마이그레이션 — 설정이 비어 있을 때만).
+    let path = this.configuredModelPath();
+    if (!path && this.settings.legacyModelPath) {
+      path = this.settings.legacyModelPath;
+      await this.persistModelPath(path);
+    }
+    if (path && cubism.cubismLoaded()) {
       try {
-        await this.loadModel(s.modelPath);
+        await this.loadModel(path);
       } catch (e) {
         this.sys(`model restore failed: ${String(e)}`);
       }
+    }
+
+    // 설정 변경 감시 — 설정 모달/CLI 로 modelPath 가 바뀌면 캐릭터 라이브 교체.
+    this.app.settings.onChange(() => {
+      const next = this.configuredModelPath();
+      if (!next || next === this.renderer.info?.path) return;
+      void this.loadModel(next).catch((e) => this.sys(`model switch failed: ${String(e)}`));
+    });
+  }
+
+  private async persistModelPath(path: string): Promise<void> {
+    try {
+      await this.app.commands.execute("plugin.settings.set", {
+        id: "soksak-plugin-vtuber",
+        key: "modelPath",
+        value: path,
+      });
+    } catch (e) {
+      console.error("[vtuber] modelPath 설정 저장 실패:", e);
     }
   }
 
@@ -96,20 +135,26 @@ export class VtuberEngine {
       cubism: cubism.cubismLoaded(),
       cubismAccepted: s.cubismAccepted,
       model: this.renderer.info?.path ?? null,
+      configuredModelPath: this.configuredModelPath(),
       expressions: this.renderer.info?.expressions ?? [],
       emotionMap: this.emotionMap(),
       mascot: s.mascotOn,
       tts: s.ttsEnabled,
-      ttsAvailable: new SpeechSynthesisTts().available(),
+      ttsAvailable: this.tts.available(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
       agentConnected: this.acp.connected(),
       lang: this.lang,
+      renderer: this.renderer.stats(),
     };
   }
 
   emotions(): readonly string[] {
     return DEFAULT_EMOTIONS;
+  }
+
+  listVoices(): Array<{ name: string; lang: string; default: boolean }> {
+    return this.tts.listVoices();
   }
 
   private emotionMap(): Record<string, string> {
@@ -137,7 +182,7 @@ export class VtuberEngine {
       throw new Error("Cubism Core not installed — run vtuber.cubism.install {accept:true} first");
     }
     const info = await this.renderer.loadModel(path);
-    await this.settings.patch({ modelPath: path });
+    if (this.configuredModelPath() !== path) await this.persistModelPath(path);
     this.emit({ kind: "state" });
     return info;
   }

@@ -100,7 +100,7 @@ export function mountPanel(container: HTMLElement, viewCtx: ViewCtx, engine: Vtu
       const pathInput = document.createElement("input");
       pathInput.className = "vt-input";
       pathInput.placeholder = "/path/to/model/xxx.model3.json";
-      const cur = engine.settings.get().modelPath;
+      const cur = engine.configuredModelPath();
       if (cur) pathInput.value = cur;
       const btn = el("button", "vt-btn") as HTMLButtonElement;
       btn.textContent = t("modelLoad");
