@@ -46,13 +46,18 @@
       "default": "claude",
       "enum": [
         "claude",
+        "claude-bare",
         "codex",
         "gemini"
       ],
       "enumLabels": [
         {
-          "en": "Claude",
-          "ko": "Claude"
+          "en": "Claude (acp)",
+          "ko": "Claude (acp)"
+        },
+        {
+          "en": "Claude bare (fastest, claude -p)",
+          "ko": "Claude 즉답 (claude -p, 최속)"
         },
         {
           "en": "Codex (ChatGPT)",
@@ -68,8 +73,8 @@
         "ko": "대화 에이전트"
       },
       "description": {
-        "en": "Which local agent (via agents-acp) answers the chat. Switching reconnects on the next turn.",
-        "ko": "대화에 답할 로컬 에이전트(agents-acp 경유). 바꾸면 다음 턴에 재연결된다."
+        "en": "Chat backend. claude-bare runs `claude -p` directly (no hooks/plugins — lowest first-token latency); others go through agents-acp. Switching reconnects on the next turn.",
+        "ko": "대화 백엔드. claude-bare 는 `claude -p` 직행(훅·플러그인 없음 — 첫 토큰 최속), 나머지는 agents-acp 경유. 바꾸면 다음 턴에 재연결."
       }
     },
     {

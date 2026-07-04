@@ -8,6 +8,8 @@ const CORE = "plugin.soksak-plugin-agents-acp.";
 export interface TurnResult {
   text: string;
   stopReason?: string;
+  /** 스트리밍 계측 — 델타 수·첫/마지막 델타 시각(ms, 턴 시작 기준). 통짜 판별용. */
+  stream: { deltas: number; firstDeltaMs: number | null; lastDeltaMs: number | null };
 }
 
 export class AcpChat {
@@ -72,14 +74,24 @@ export class AcpChat {
     let off: Disposable | null = null;
     try {
       const { connId, sessionId } = await this.ensure();
+      const t0 = performance.now();
       let streamed = "";
+      let deltas = 0;
+      let firstDeltaMs: number | null = null;
+      let lastDeltaMs: number | null = null;
       off = this.app.bus.on(`acp.update.${connId}`, (evt: any) => {
         const u = evt?.update;
         if (!u || u.sessionUpdate !== "agent_message_chunk") return;
         const t: string = u.content?.text ?? "";
         if (t !== "" && t === streamed) return; // 최종 완결 재전송 skip(코어 dedup 계약과 동일 규칙)
         streamed += t;
-        if (t) onDelta(t);
+        if (t) {
+          deltas++;
+          const ms = Math.round(performance.now() - t0);
+          if (firstDeltaMs == null) firstDeltaMs = ms;
+          lastDeltaMs = ms;
+          onDelta(t);
+        }
       });
       const body = this.preambleSent ? text : preamble + text;
       let r: Record<string, any>;
@@ -92,7 +104,11 @@ export class AcpChat {
       }
       this.preambleSent = true;
       const final = String(r.text ?? "").trim() || streamed.trim();
-      return { text: final, stopReason: r.stopReason };
+      return {
+        text: final,
+        stopReason: r.stopReason,
+        stream: { deltas, firstDeltaMs, lastDeltaMs },
+      };
     } finally {
       off?.dispose();
       this.inFlight = false;

@@ -47,9 +47,10 @@ export interface HostApp {
     spawn(
       cmd: string,
       args?: string[],
-      opts?: { cwd?: string; env?: Record<string, string> },
+      opts?: { cwd?: string; env?: Record<string, string>; envRemove?: string[] },
     ): Promise<number>;
     write(handle: number, data: string): Promise<void>;
+    closeStdin(handle: number): Promise<void>;
     onData(handle: number, cb: (bytes: Uint8Array) => void): Disposable;
     onStderr(handle: number, cb: (bytes: Uint8Array) => void): Disposable;
     onExit(handle: number, cb: (code: number) => void): Disposable;

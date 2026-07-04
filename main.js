@@ -40243,7 +40243,7 @@ var DEFAULT_EMOTIONS = [
 ];
 function personaPreamble(emotions) {
   const tags = emotions.map((e2) => `[${e2}]`).join(" ");
-  return `You are a VTuber companion character shown as a Live2D avatar. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
+  return `You are a VTuber companion character shown as a Live2D avatar. This is casual voice chat: answer instantly from your own knowledge. Never use tools, skills, commands, or read files \u2014 plain conversation only. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
 
 `;
 }
@@ -41101,14 +41101,24 @@ var AcpChat = class {
     let off = null;
     try {
       const { connId, sessionId } = await this.ensure();
+      const t0 = performance.now();
       let streamed = "";
+      let deltas = 0;
+      let firstDeltaMs = null;
+      let lastDeltaMs = null;
       off = this.app.bus.on(`acp.update.${connId}`, (evt) => {
         const u2 = evt?.update;
         if (!u2 || u2.sessionUpdate !== "agent_message_chunk") return;
         const t2 = u2.content?.text ?? "";
         if (t2 !== "" && t2 === streamed) return;
         streamed += t2;
-        if (t2) onDelta(t2);
+        if (t2) {
+          deltas++;
+          const ms = Math.round(performance.now() - t0);
+          if (firstDeltaMs == null) firstDeltaMs = ms;
+          lastDeltaMs = ms;
+          onDelta(t2);
+        }
       });
       const body = this.preambleSent ? text : preamble + text;
       let r2;
@@ -41120,7 +41130,11 @@ var AcpChat = class {
       }
       this.preambleSent = true;
       const final = String(r2.text ?? "").trim() || streamed.trim();
-      return { text: final, stopReason: r2.stopReason };
+      return {
+        text: final,
+        stopReason: r2.stopReason,
+        stream: { deltas, firstDeltaMs, lastDeltaMs }
+      };
     } finally {
       off?.dispose();
       this.inFlight = false;
@@ -41137,6 +41151,124 @@ var AcpChat = class {
   }
 };
 
+// src/claudeCli.ts
+var ClaudeCliChat = class {
+  constructor(app, model) {
+    this.app = app;
+    this.model = model;
+  }
+  sessionId = null;
+  preambleSent = false;
+  inFlight = false;
+  curHandle = null;
+  connected() {
+    return this.sessionId != null;
+  }
+  busy() {
+    return this.inFlight;
+  }
+  async ask(text, preamble, onDelta) {
+    if (this.inFlight) throw new Error("turn already in flight");
+    const proc = this.app.process;
+    if (!proc) throw new Error("process permission unavailable");
+    this.inFlight = true;
+    const body = this.preambleSent ? text : preamble + text;
+    const model = this.model().trim() || "haiku";
+    const args = [
+      "-p",
+      body,
+      "--setting-sources",
+      "",
+      "--model",
+      model,
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      ...this.sessionId ? ["--resume", this.sessionId] : []
+    ];
+    const t0 = performance.now();
+    let deltas = 0;
+    let firstDeltaMs = null;
+    let lastDeltaMs = null;
+    let streamed = "";
+    let finalText = "";
+    let buf = "";
+    const subs = [];
+    try {
+      const handle = await proc.spawn(
+        "/bin/sh",
+        ["-lc", 'exec claude "$@"', "claude", ...args],
+        { cwd: void 0, envRemove: ["CLAUDECODE"] }
+      );
+      this.curHandle = handle;
+      await proc.closeStdin(handle).catch(() => {
+      });
+      const done = new Promise((resolve2) => {
+        subs.push(
+          proc.onData(handle, (bytes) => {
+            buf += new TextDecoder().decode(bytes);
+            let nl;
+            while ((nl = buf.indexOf("\n")) >= 0) {
+              const line = buf.slice(0, nl).trim();
+              buf = buf.slice(nl + 1);
+              if (!line) continue;
+              let d2;
+              try {
+                d2 = JSON.parse(line);
+              } catch {
+                continue;
+              }
+              if (d2.type === "stream_event" && d2.event?.type === "content_block_delta") {
+                const t2 = d2.event.delta?.text ?? "";
+                if (t2) {
+                  deltas++;
+                  const ms = Math.round(performance.now() - t0);
+                  if (firstDeltaMs == null) firstDeltaMs = ms;
+                  lastDeltaMs = ms;
+                  streamed += t2;
+                  onDelta(t2);
+                }
+              } else if (d2.type === "result") {
+                if (typeof d2.session_id === "string") this.sessionId = d2.session_id;
+                if (d2.subtype === "success") finalText = String(d2.result ?? "");
+                else finalText = "";
+              }
+            }
+          }),
+          proc.onExit(handle, (code2) => resolve2(code2))
+        );
+      });
+      const code = await done;
+      if (code !== 0 && !streamed && !finalText) {
+        this.sessionId = null;
+        throw new Error(`claude -p exited ${code}`);
+      }
+      this.preambleSent = true;
+      return {
+        text: (finalText || streamed).trim(),
+        stopReason: void 0,
+        stream: { deltas, firstDeltaMs, lastDeltaMs }
+      };
+    } finally {
+      for (const s2 of subs) s2.dispose();
+      this.curHandle = null;
+      this.inFlight = false;
+    }
+  }
+  async cancel() {
+    if (this.curHandle != null) {
+      await this.app.process?.kill(this.curHandle).catch(() => {
+      });
+    }
+  }
+  dispose() {
+    void this.cancel();
+    this.sessionId = null;
+    this.preambleSent = false;
+  }
+};
+
 // src/engine.ts
 var VtuberEngine = class {
   constructor(app) {
@@ -41149,6 +41281,10 @@ var VtuberEngine = class {
       () => this.agentSetting(),
       () => this.agentModelSetting()
     );
+    this.claudeCli = new ClaudeCliChat(app, () => {
+      const m2 = this.agentModelSetting();
+      return /haiku|sonnet|opus|fable|^claude/i.test(m2) ? m2 : "";
+    });
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v2 = this.app.settings.get("voiceName");
@@ -41211,6 +41347,7 @@ var VtuberEngine = class {
   sidecar;
   speech;
   acp;
+  claudeCli;
   listeners = /* @__PURE__ */ new Set();
   chatLog = [];
   turnBusy = false;
@@ -41225,7 +41362,11 @@ var VtuberEngine = class {
   }
   agentSetting() {
     const v2 = this.app.settings.get("agent");
-    return v2 === "codex" || v2 === "gemini" ? v2 : "claude";
+    return v2 === "codex" || v2 === "gemini" || v2 === "claude-bare" ? v2 : "claude";
+  }
+  /** 대화 백엔드 — claude-bare = claude -p 직행(즉답), 그 외 = acp-core. */
+  chatBackend() {
+    return this.agentSetting() === "claude-bare" ? this.claudeCli : this.acp;
   }
   agentModelSetting() {
     const v2 = this.app.settings.get("agentModel");
@@ -41253,6 +41394,7 @@ var VtuberEngine = class {
       if (agent !== lastAgent) {
         lastAgent = agent;
         this.acp.dispose();
+        this.claudeCli.dispose();
         this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
         this.emit({ kind: "state" });
       }
@@ -41309,7 +41451,7 @@ var VtuberEngine = class {
       sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
-      agentConnected: this.acp.connected(),
+      agentConnected: this.chatBackend().connected(),
       lang: this.lang,
       renderer: this.renderer.stats()
     };
@@ -41402,7 +41544,7 @@ var VtuberEngine = class {
       }
     });
     try {
-      const r2 = await this.acp.ask(
+      const r2 = await this.chatBackend().ask(
         text,
         personaPreamble(DEFAULT_EMOTIONS),
         (delta) => seg.feed(delta)
@@ -41418,7 +41560,12 @@ var VtuberEngine = class {
       return {
         reply,
         utterances,
-        timing: { turnMs: Math.round(performance.now() - t0), firstSentenceMs }
+        timing: {
+          turnMs: Math.round(performance.now() - t0),
+          firstSentenceMs,
+          ...r2.stream
+          // deltas/firstDeltaMs/lastDeltaMs — 에이전트 스트리밍 형태 판별
+        }
       };
     } catch (e2) {
       this.sys(`${String(e2)}`);
@@ -41432,6 +41579,7 @@ var VtuberEngine = class {
     this.speech.cancel();
     this.renderer.setMouth(false);
     await this.acp.cancel();
+    await this.claudeCli.cancel();
     this.emit({ kind: "subtitle", text: "" });
     this.emit({ kind: "state" });
   }
@@ -41439,6 +41587,7 @@ var VtuberEngine = class {
     this.speech.cancel();
     this.sidecar.dispose();
     this.acp.dispose();
+    this.claudeCli.dispose();
     this.renderer.dispose();
     this.listeners.clear();
   }

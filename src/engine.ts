@@ -7,6 +7,7 @@ import { Live2DRenderer, type LoadedModelInfo } from "@/renderer";
 import { SpeechQueue, SpeechSynthesisTts, type TtsEngine } from "@/tts";
 import { SidecarTts } from "@/sidecarTts";
 import { AcpChat } from "@/acp";
+import { ClaudeCliChat } from "@/claudeCli";
 import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion, personaPreamble } from "@/pipeline";
 import * as cubism from "@/cubism";
 
@@ -27,6 +28,7 @@ export class VtuberEngine {
   private sidecar!: SidecarTts;
   private speech: SpeechQueue;
   private acp: AcpChat;
+  private claudeCli!: ClaudeCliChat;
   private listeners = new Set<(e: EngineEvent) => void>();
   private chatLog: ChatEntry[] = [];
   private turnBusy = false;
@@ -41,6 +43,11 @@ export class VtuberEngine {
       () => this.agentSetting(),
       () => this.agentModelSetting(),
     );
+    // claude-bare 의 모델 — agentModel 이 claude 계열일 때만 통과(다른 에이전트용 id 혼입 방지).
+    this.claudeCli = new ClaudeCliChat(app, () => {
+      const m = this.agentModelSetting();
+      return /haiku|sonnet|opus|fable|^claude/i.test(m) ? m : "";
+    });
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v = this.app.settings.get("voiceName");
@@ -112,7 +119,12 @@ export class VtuberEngine {
 
   private agentSetting(): string {
     const v = this.app.settings.get("agent");
-    return v === "codex" || v === "gemini" ? v : "claude";
+    return v === "codex" || v === "gemini" || v === "claude-bare" ? v : "claude";
+  }
+
+  /** 대화 백엔드 — claude-bare = claude -p 직행(즉답), 그 외 = acp-core. */
+  private chatBackend(): AcpChat | ClaudeCliChat {
+    return this.agentSetting() === "claude-bare" ? this.claudeCli : this.acp;
   }
 
   private agentModelSetting(): string {
@@ -147,6 +159,7 @@ export class VtuberEngine {
       if (agent !== lastAgent) {
         lastAgent = agent;
         this.acp.dispose();
+        this.claudeCli.dispose();
         this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
         this.emit({ kind: "state" });
       }
@@ -207,7 +220,7 @@ export class VtuberEngine {
       sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
-      agentConnected: this.acp.connected(),
+      agentConnected: this.chatBackend().connected(),
       lang: this.lang,
       renderer: this.renderer.stats(),
     };
@@ -296,7 +309,17 @@ export class VtuberEngine {
    *  timing.firstSentenceMs ≈ turnMs 이면 에이전트가 델타를 통짜로 보낸 것(파이프라인 지연 아님). */
   async chat(
     text: string,
-  ): Promise<{ reply: string; utterances: Utterance[]; timing: { turnMs: number; firstSentenceMs: number | null } }> {
+  ): Promise<{
+    reply: string;
+    utterances: Utterance[];
+    timing: {
+      turnMs: number;
+      firstSentenceMs: number | null;
+      deltas: number;
+      firstDeltaMs: number | null;
+      lastDeltaMs: number | null;
+    };
+  }> {
     if (this.turnBusy) throw new Error("turn already in flight");
     this.turnBusy = true;
     this.emit({ kind: "state" });
@@ -314,7 +337,7 @@ export class VtuberEngine {
       }
     });
     try {
-      const r = await this.acp.ask(text, personaPreamble(DEFAULT_EMOTIONS), (delta) =>
+      const r = await this.chatBackend().ask(text, personaPreamble(DEFAULT_EMOTIONS), (delta) =>
         seg.feed(delta),
       );
       seg.flush();
@@ -329,7 +352,11 @@ export class VtuberEngine {
       return {
         reply,
         utterances,
-        timing: { turnMs: Math.round(performance.now() - t0), firstSentenceMs },
+        timing: {
+          turnMs: Math.round(performance.now() - t0),
+          firstSentenceMs,
+          ...r.stream, // deltas/firstDeltaMs/lastDeltaMs — 에이전트 스트리밍 형태 판별
+        },
       };
     } catch (e) {
       this.sys(`${String(e)}`);
@@ -344,6 +371,7 @@ export class VtuberEngine {
     this.speech.cancel();
     this.renderer.setMouth(false);
     await this.acp.cancel();
+    await this.claudeCli.cancel();
     this.emit({ kind: "subtitle", text: "" });
     this.emit({ kind: "state" });
   }
@@ -352,6 +380,7 @@ export class VtuberEngine {
     this.speech.cancel();
     this.sidecar.dispose();
     this.acp.dispose();
+    this.claudeCli.dispose();
     this.renderer.dispose();
     this.listeners.clear();
   }
