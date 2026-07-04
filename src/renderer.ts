@@ -1,0 +1,232 @@
+// Live2D 렌더러 — pixi 스테이지 + 모델 1개를 단일 소유하고, 캔버스 홀더를 패널/마스코트 사이로
+// 옮겨 단다(모델 인스턴스는 캔버스 2개에 못 산다 — 이동이 정공법).
+// 로컬 파일은 app.fs.url(blob URL) 로 치환(settings.replaceFiles) — asset:// 는 숨김 디렉터리를
+// 막으므로 코어 표준(read_file_base64→blob)을 따른다. 성능: 어느 표면에도 안 붙으면 티커 완전 정지.
+import * as PIXI from "pixi.js";
+import { Live2DModel, Cubism4ModelSettings } from "pixi-live2d-display-lipsyncpatch/cubism4";
+import type { HostApp } from "@/types";
+import { DEFAULT_EMOTIONS } from "@/pipeline";
+
+// pixi-live2d-display 는 전역 PIXI(티커·유틸)를 찾는다 — 이 번들의 PIXI 를 노출(번들 스코프라
+// 다른 플러그인의 pixi 와 충돌하지 않는다. 코어는 pixi 를 전역에 두지 않음).
+(window as unknown as { PIXI: unknown }).PIXI = PIXI;
+
+const MOUTH_PARAM = "ParamMouthOpenY"; // Cubism 표준 입 파라미터(대부분의 모델). 상이 모델은 README 참조.
+
+export interface LoadedModelInfo {
+  path: string;
+  expressions: string[]; // 표정 Name 목록(모델 정의 순서)
+  motionGroups: string[];
+}
+
+export class Live2DRenderer {
+  private pixi: PIXI.Application | null = null;
+  private model: Live2DModel | null = null;
+  private holder: HTMLDivElement;
+  private ro: ResizeObserver | null = null;
+  private attachedTo: HTMLElement | null = null;
+  private mouthOn = false;
+  private urlCache = new Map<string, string>();
+  info: LoadedModelInfo | null = null;
+
+  constructor(private app: HostApp) {
+    this.holder = document.createElement("div");
+    this.holder.style.cssText = "position:absolute;inset:0;overflow:hidden";
+    document.addEventListener("visibilitychange", this.onVisibility);
+  }
+
+  private onVisibility = () => {
+    this.syncTicker();
+  };
+
+  private syncTicker(): void {
+    const shouldRun =
+      !!this.pixi && !!this.attachedTo && this.attachedTo.isConnected && !document.hidden;
+    const t = PIXI.Ticker.shared;
+    if (shouldRun && !t.started) t.start();
+    if (!shouldRun && t.started) t.stop();
+  }
+
+  private ensurePixi(): PIXI.Application {
+    if (this.pixi) return this.pixi;
+    this.pixi = new PIXI.Application({
+      backgroundAlpha: 0,
+      antialias: true,
+      autoDensity: true,
+      resolution: Math.min(2, globalThis.devicePixelRatio || 1),
+      sharedTicker: true, // 이 번들 전용 shared ticker — 정지/재개 한 스위치
+    });
+    const cv = this.pixi.view as HTMLCanvasElement;
+    cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
+    this.holder.appendChild(cv);
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(this.holder);
+    return this.pixi;
+  }
+
+  /** 캔버스 홀더를 표면(패널 스테이지/마스코트)에 단다 — 마지막 attach 가 이긴다. */
+  attach(target: HTMLElement): void {
+    this.ensurePixi();
+    target.appendChild(this.holder);
+    this.attachedTo = target;
+    this.resize();
+    this.syncTicker();
+  }
+
+  /** 특정 표면에서 분리(그 표면이 아직 소유 중일 때만 — 늦게 온 detach 가 새 주인을 뺏지 않게). */
+  detach(target: HTMLElement): void {
+    if (this.attachedTo !== target) return;
+    this.holder.remove();
+    this.attachedTo = null;
+    this.syncTicker();
+  }
+
+  private resize(): void {
+    if (!this.pixi || !this.attachedTo) return;
+    const w = this.holder.clientWidth;
+    const h = this.holder.clientHeight;
+    if (w < 2 || h < 2) return;
+    this.pixi.renderer.resize(w, h);
+    this.fit();
+  }
+
+  private fit(): void {
+    if (!this.pixi || !this.model) return;
+    const w = this.pixi.renderer.width / this.pixi.renderer.resolution;
+    const h = this.pixi.renderer.height / this.pixi.renderer.resolution;
+    const m = this.model;
+    m.scale.set(1);
+    const k = Math.min(w / m.width, h / m.height) * 0.95;
+    if (Number.isFinite(k) && k > 0) m.scale.set(k);
+    m.anchor.set(0.5, 0.5);
+    m.position.set(w / 2, h / 2);
+  }
+
+  private async fileUrl(path: string): Promise<string> {
+    const hit = this.urlCache.get(path);
+    if (hit) return hit;
+    if (!this.app.fs?.url) throw new Error("fs:read permission unavailable");
+    const u = await this.app.fs.url(path);
+    this.urlCache.set(path, u);
+    return u;
+  }
+
+  /** .model3.json 로드 — 참조 파일 전부를 blob URL 로 선해석 후 replaceFiles 로 치환. */
+  async loadModel(modelPath: string): Promise<LoadedModelInfo> {
+    if (!this.app.fs?.readText) throw new Error("fs:read permission unavailable");
+    const { content } = await this.app.fs.readText(modelPath);
+    const json = JSON.parse(content);
+    if (!json?.FileReferences?.Moc || !String(json.FileReferences.Moc).endsWith(".moc3")) {
+      throw new Error("not a Cubism 3+ model (.model3.json with FileReferences.Moc required)");
+    }
+    const dir = modelPath.replace(/\/[^/]*$/, "");
+    const settings = new Cubism4ModelSettings({ ...json, url: modelPath });
+    const files = settings.getDefinedFiles();
+    const map = new Map<string, string>();
+    await Promise.all(
+      files.map(async (f) => {
+        map.set(f, await this.fileUrl(dir + "/" + f));
+      }),
+    );
+    settings.replaceFiles((file: string) => map.get(file) ?? file);
+
+    const model = await Live2DModel.from(settings, { autoInteract: false });
+    // 교체 로드 — 이전 모델 정리 후 장착
+    this.unloadModel();
+    this.ensurePixi().stage.addChild(model);
+    this.model = model;
+    this.hookMouth(model);
+    this.fit();
+    this.info = {
+      path: modelPath,
+      expressions: (settings.expressions ?? []).map((e: { Name: string }) => e.Name),
+      motionGroups: Object.keys((settings as unknown as { motions?: object }).motions ?? {}),
+    };
+    return this.info;
+  }
+
+  unloadModel(): void {
+    if (!this.model) return;
+    this.model.destroy();
+    this.model = null;
+    this.info = null;
+  }
+
+  /** 모션 업데이트 뒤에 입 파라미터를 덮어써 의사 립싱크(M1). M2a 에서 실측 진폭으로 교체. */
+  private hookMouth(model: Live2DModel): void {
+    const mm = (model.internalModel as { motionManager?: { update?: Function } }).motionManager;
+    if (!mm?.update) return;
+    const orig = (mm.update as Function).bind(mm);
+    const self = this;
+    mm.update = function (coreModel: unknown, now: number) {
+      const r = orig(coreModel, now);
+      if (self.mouthOn && coreModel && typeof (coreModel as any).setParameterValueById === "function") {
+        const t = performance.now() / 1000;
+        // 두 사인 합성 + 클램프 — 무작위 대신 결정적 파형(부드럽고 재현 가능)
+        const v = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t * 9.1) + 0.2 * Math.sin(t * 23.7)));
+        (coreModel as any).setParameterValueById(MOUTH_PARAM, v);
+      }
+      return r;
+    };
+  }
+
+  setMouth(on: boolean): void {
+    this.mouthOn = on;
+    if (!on && this.model) {
+      const core = (this.model.internalModel as { coreModel?: any }).coreModel;
+      core?.setParameterValueById?.(MOUTH_PARAM, 0);
+    }
+  }
+
+  /** 표정 적용 — "neutral" 은 표정 리셋. 알려진 표정 Name/인덱스만 적용. */
+  async setExpression(name: string): Promise<boolean> {
+    if (!this.model) return false;
+    if (name === "neutral") {
+      const em = (this.model.internalModel as any)?.motionManager?.expressionManager;
+      if (em?.resetExpression) {
+        em.resetExpression();
+        return true;
+      }
+      return false;
+    }
+    try {
+      return (await this.model.expression(name)) === true;
+    } catch (e) {
+      console.error("[vtuber] expression 적용 실패:", e);
+      return false;
+    }
+  }
+
+  /** 감정→표정 자동 매핑 — 표정 이름에 감정어가 포함되면 채택(대소문자 무시). 못 찾으면 미매핑. */
+  autoEmotionMap(): Record<string, string> {
+    const out: Record<string, string> = {};
+    const names = this.info?.expressions ?? [];
+    const alias: Record<string, string[]> = {
+      joy: ["joy", "happy", "smile", "fun"],
+      anger: ["anger", "angry", "mad"],
+      sadness: ["sad", "sorrow", "cry"],
+      surprise: ["surprise", "shock"],
+      fear: ["fear", "scare"],
+      disgust: ["disgust"],
+    };
+    for (const emo of DEFAULT_EMOTIONS) {
+      if (emo === "neutral") continue; // neutral=리셋 — 매핑 불필요
+      const keys = alias[emo] ?? [emo];
+      const hit = names.find((n) => keys.some((k) => n.toLowerCase().includes(k)));
+      if (hit) out[emo] = hit;
+    }
+    return out;
+  }
+
+  dispose(): void {
+    document.removeEventListener("visibilitychange", this.onVisibility);
+    this.ro?.disconnect();
+    this.unloadModel();
+    if (this.pixi) {
+      this.pixi.destroy(true);
+      this.pixi = null;
+    }
+    this.holder.remove();
+    this.attachedTo = null;
+  }
+}

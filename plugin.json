@@ -1,0 +1,129 @@
+{
+  "spec": "soksak-spec-plugin@0.0.1",
+  "id": "soksak-plugin-vtuber",
+  "name": {
+    "en": "VTuber",
+    "ko": "브이튜버"
+  },
+  "version": "0.0.1",
+  "repo": "https://github.com/soksak-ai/soksak-plugin-vtuber.git",
+  "description": {
+    "en": "Live2D avatar companion — chat with a local AI agent; the avatar reacts with expressions, subtitles, and speech. Panel view and screen mascot overlay. Bring your own Live2D model (.model3.json).",
+    "ko": "Live2D 아바타 컴패니언 — 로컬 AI 에이전트와 대화하면 아바타가 표정·자막·음성으로 반응한다. 패널 뷰와 화면 마스코트 오버레이. Live2D 모델(.model3.json)은 사용자가 지정."
+  },
+  "entry": "main.js",
+  "permissions": [
+    "ui",
+    "ui:overlay:screen",
+    "commands",
+    "network",
+    "data",
+    "notify",
+    "fs:read"
+  ],
+  "dependencies": {
+    "soksak-plugin-agents-acp": "^0.1.0"
+  },
+  "contributes": {
+    "views": [
+      {
+        "id": "vtuber",
+        "title": {
+          "en": "VTuber",
+          "ko": "브이튜버"
+        },
+        "icon": "🎭",
+        "placements": [
+          "content"
+        ],
+        "defaultPlacement": "content"
+      }
+    ],
+    "commands": [
+      {
+        "name": "ping",
+        "title": {
+          "en": "Pings the plugin",
+          "ko": "플러그인 상태를 점검합니다"
+        }
+      },
+      {
+        "name": "chat",
+        "title": {
+          "en": "Sends a chat turn to the agent",
+          "ko": "에이전트와 대화합니다"
+        }
+      },
+      {
+        "name": "say",
+        "title": {
+          "en": "Speaks text with expressions (no LLM)",
+          "ko": "텍스트를 표정과 함께 발화합니다"
+        }
+      },
+      {
+        "name": "stop",
+        "title": {
+          "en": "Stops speech and the current turn",
+          "ko": "발화와 진행 중 턴을 중단합니다"
+        }
+      },
+      {
+        "name": "state",
+        "title": {
+          "en": "Reads plugin state",
+          "ko": "플러그인 상태를 조회합니다"
+        }
+      },
+      {
+        "name": "model.load",
+        "title": {
+          "en": "Loads a Live2D model",
+          "ko": "Live2D 모델을 로드합니다"
+        }
+      },
+      {
+        "name": "expression.list",
+        "title": {
+          "en": "Lists model expressions",
+          "ko": "모델 표정 목록을 조회합니다"
+        }
+      },
+      {
+        "name": "expression.set",
+        "title": {
+          "en": "Applies a model expression",
+          "ko": "모델 표정을 적용합니다"
+        }
+      },
+      {
+        "name": "emotion.map",
+        "title": {
+          "en": "Sets emotion→expression mapping",
+          "ko": "감정-표정 매핑을 설정합니다"
+        }
+      },
+      {
+        "name": "cubism.install",
+        "title": {
+          "en": "Downloads Cubism Core after license consent",
+          "ko": "라이선스 동의 후 Cubism Core를 내려받습니다"
+        }
+      },
+      {
+        "name": "mascot.toggle",
+        "title": {
+          "en": "Toggles the screen mascot overlay",
+          "ko": "화면 마스코트 오버레이를 켜고 끕니다"
+        }
+      },
+      {
+        "name": "tts.toggle",
+        "title": {
+          "en": "Toggles speech output",
+          "ko": "음성 출력을 켜고 끕니다"
+        }
+      }
+    ]
+  }
+}

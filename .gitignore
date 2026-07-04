@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.DS_Store
+.vitest/
+
+# 머신-로컬 dev 마커(추적 금지 — 배포 메타는 별도 파일)
+.soksak.json
+
+# 프로프라이어터리 산출물 격리 — Cubism Core/모델은 어떤 경로로도 repo 에 들어오지 않는다
+vendor/
+*.moc3
+*.model3.json
+live2dcubismcore*
+
+# local-only working notes (never committed)
+secret/
