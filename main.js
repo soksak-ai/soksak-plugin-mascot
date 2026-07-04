@@ -40605,7 +40605,7 @@ var PREFERRED_VOICES = {
   ja: ["kyoko", "nanami", "o-ren"],
   zh: ["tingting", "xiaoxiao"]
 };
-var SpeechSynthesisTts = class {
+var SpeechSynthesisTts = class _SpeechSynthesisTts {
   constructor(opts) {
     this.opts = opts;
   }
@@ -40617,13 +40617,24 @@ var SpeechSynthesisTts = class {
     if (!this.available()) return [];
     return speechSynthesis.getVoices().map((v2) => ({ name: v2.name, lang: v2.lang, default: v2.default }));
   }
+  // 같은 이름이 여러 품질로 설치될 수 있다(macOS: compact/enhanced/premium) — 항상 상위 품질 선택.
+  static quality(v2) {
+    const uri = (v2.voiceURI ?? "").toLowerCase() + " " + v2.name.toLowerCase();
+    if (uri.includes("premium")) return 3;
+    if (uri.includes("enhanced") || uri.includes("\uD5A5\uC0C1")) return 2;
+    if (uri.includes("compact")) return 0;
+    return 1;
+  }
+  static best(cands) {
+    return cands.length ? cands.reduce((a2, b2) => _SpeechSynthesisTts.quality(b2) > _SpeechSynthesisTts.quality(a2) ? b2 : a2) : null;
+  }
   pickVoice(lang) {
     const voices = speechSynthesis.getVoices();
     if (!voices.length) return null;
     const lc = (s2) => s2.toLowerCase();
     const wanted = lc(this.opts?.voiceName?.() ?? "").trim();
     if (wanted) {
-      const hit = voices.find((v2) => lc(v2.name).includes(wanted));
+      const hit = _SpeechSynthesisTts.best(voices.filter((v2) => lc(v2.name).includes(wanted)));
       if (hit) return hit;
     }
     const base = lang.slice(0, 2).toLowerCase();
@@ -40631,10 +40642,10 @@ var SpeechSynthesisTts = class {
       (v2) => lc(v2.lang ?? "").startsWith(lc(lang)) || lc(v2.lang ?? "").startsWith(base)
     );
     for (const pref of PREFERRED_VOICES[base] ?? []) {
-      const hit = inLang.find((v2) => lc(v2.name).includes(pref));
+      const hit = _SpeechSynthesisTts.best(inLang.filter((v2) => lc(v2.name).includes(pref)));
       if (hit) return hit;
     }
-    return inLang[0] ?? null;
+    return _SpeechSynthesisTts.best(inLang);
   }
   /** 음성 목록은 비동기 적재(voiceschanged) — 첫 발화가 무음이 되지 않게 최대 1초 대기. */
   voicesReady() {

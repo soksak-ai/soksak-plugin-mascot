@@ -34,27 +34,41 @@ export class SpeechSynthesisTts implements TtsEngine {
       .map((v) => ({ name: v.name, lang: v.lang, default: v.default }));
   }
 
+  // 같은 이름이 여러 품질로 설치될 수 있다(macOS: compact/enhanced/premium) — 항상 상위 품질 선택.
+  private static quality(v: SpeechSynthesisVoice): number {
+    const uri = (v.voiceURI ?? "").toLowerCase() + " " + v.name.toLowerCase();
+    if (uri.includes("premium")) return 3;
+    if (uri.includes("enhanced") || uri.includes("향상")) return 2;
+    if (uri.includes("compact")) return 0;
+    return 1;
+  }
+  private static best(cands: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+    return cands.length
+      ? cands.reduce((a, b) => (SpeechSynthesisTts.quality(b) > SpeechSynthesisTts.quality(a) ? b : a))
+      : null;
+  }
+
   private pickVoice(lang: string): SpeechSynthesisVoice | null {
     const voices = speechSynthesis.getVoices();
     if (!voices.length) return null;
     const lc = (s: string) => s.toLowerCase();
-    // 1) 사용자 지정 voiceName(부분일치, 대소문자 무시)이 최우선
+    // 1) 사용자 지정 voiceName(부분일치, 대소문자 무시)이 최우선 — 동명이면 상위 품질
     const wanted = lc(this.opts?.voiceName?.() ?? "").trim();
     if (wanted) {
-      const hit = voices.find((v) => lc(v.name).includes(wanted));
+      const hit = SpeechSynthesisTts.best(voices.filter((v) => lc(v.name).includes(wanted)));
       if (hit) return hit;
     }
     const base = lang.slice(0, 2).toLowerCase();
     const inLang = voices.filter(
       (v) => lc(v.lang ?? "").startsWith(lc(lang)) || lc(v.lang ?? "").startsWith(base),
     );
-    // 2) 로케일 내 선호 음색
+    // 2) 로케일 내 선호 음색 — 동명이면 상위 품질
     for (const pref of PREFERRED_VOICES[base] ?? []) {
-      const hit = inLang.find((v) => lc(v.name).includes(pref));
+      const hit = SpeechSynthesisTts.best(inLang.filter((v) => lc(v.name).includes(pref)));
       if (hit) return hit;
     }
-    // 3) 로케일 일치 아무거나
-    return inLang[0] ?? null;
+    // 3) 로케일 일치 중 상위 품질
+    return SpeechSynthesisTts.best(inLang);
   }
 
   /** 음성 목록은 비동기 적재(voiceschanged) — 첫 발화가 무음이 되지 않게 최대 1초 대기. */
