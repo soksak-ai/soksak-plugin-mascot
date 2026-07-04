@@ -40659,18 +40659,43 @@ var SpeechSynthesisTts = class _SpeechSynthesisTts {
       setTimeout(done, 1e3);
     });
   }
-  async speak(text, lang) {
-    await this.voicesReady();
+  /** utterance 1회 발화 — 종료/에러/워치독 중 먼저 오는 것으로 resolve(에러 여부 반환). */
+  speakOnce(text, lang, voice) {
     return new Promise((resolve2) => {
       const u2 = new SpeechSynthesisUtterance(text);
-      const voice = this.pickVoice(lang);
       if (voice) u2.voice = voice;
       u2.lang = voice?.lang ?? lang;
       u2.rate = 1.05;
-      u2.onend = () => resolve2();
-      u2.onerror = () => resolve2();
+      let settled = false;
+      const settle = (ok) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        resolve2(ok);
+      };
+      const watchdog = setTimeout(
+        () => {
+          try {
+            speechSynthesis.cancel();
+          } catch {
+          }
+          settle(false);
+        },
+        Math.max(5e3, text.length * 220)
+      );
+      u2.onend = () => settle(true);
+      u2.onerror = () => settle(false);
       speechSynthesis.speak(u2);
     });
+  }
+  async speak(text, lang) {
+    await this.voicesReady();
+    const voice = this.pickVoice(lang);
+    const ok = await this.speakOnce(text, lang, voice);
+    if (!ok && voice) {
+      console.warn(`[vtuber] voice "${voice.name}" failed \u2014 falling back to locale default`);
+      await this.speakOnce(text, lang, null);
+    }
   }
   cancel() {
     try {

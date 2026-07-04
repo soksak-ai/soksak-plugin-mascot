@@ -84,18 +84,47 @@ export class SpeechSynthesisTts implements TtsEngine {
     });
   }
 
-  async speak(text: string, lang: string): Promise<void> {
-    await this.voicesReady();
+  /** utterance 1회 발화 — 종료/에러/워치독 중 먼저 오는 것으로 resolve(에러 여부 반환). */
+  private speakOnce(text: string, lang: string, voice: SpeechSynthesisVoice | null): Promise<boolean> {
     return new Promise((resolve) => {
       const u = new SpeechSynthesisUtterance(text);
-      const voice = this.pickVoice(lang);
       if (voice) u.voice = voice;
       u.lang = voice?.lang ?? lang;
       u.rate = 1.05;
-      u.onend = () => resolve();
-      u.onerror = () => resolve(); // 발화 실패는 파이프라인을 멈추지 않는다(자막은 이미 표시)
+      let settled = false;
+      const settle = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(watchdog);
+        resolve(ok);
+      };
+      // 워치독 — 특정 보이스가 end/error 어느 쪽도 안 내면 큐가 영구 잠긴다(발화 시간 상한으로 방어).
+      const watchdog = setTimeout(
+        () => {
+          try {
+            speechSynthesis.cancel();
+          } catch {
+            /* 무시 */
+          }
+          settle(false);
+        },
+        Math.max(5000, text.length * 220),
+      );
+      u.onend = () => settle(true);
+      u.onerror = () => settle(false);
       speechSynthesis.speak(u);
     });
+  }
+
+  async speak(text: string, lang: string): Promise<void> {
+    await this.voicesReady();
+    const voice = this.pickVoice(lang);
+    const ok = await this.speakOnce(text, lang, voice);
+    if (!ok && voice) {
+      // 지정/선호 보이스 실패(잘못된 voiceName 등) — 로케일 기본으로 1회 폴백(무음 근치).
+      console.warn(`[vtuber] voice "${voice.name}" failed — falling back to locale default`);
+      await this.speakOnce(text, lang, null);
+    }
   }
 
   cancel(): void {
