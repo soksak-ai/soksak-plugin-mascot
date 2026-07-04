@@ -34,7 +34,11 @@ export class VtuberEngine {
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
-    this.acp = new AcpChat(app, () => "claude");
+    this.acp = new AcpChat(
+      app,
+      () => this.agentSetting(),
+      () => this.agentModelSetting(),
+    );
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v = this.app.settings.get("voiceName");
@@ -67,6 +71,16 @@ export class VtuberEngine {
     return typeof v === "string" ? v.trim() : "";
   }
 
+  private agentSetting(): string {
+    const v = this.app.settings.get("agent");
+    return v === "codex" || v === "gemini" ? v : "claude";
+  }
+
+  private agentModelSetting(): string {
+    const v = this.app.settings.get("agentModel");
+    return typeof v === "string" ? v.trim() : "";
+  }
+
   async init(): Promise<void> {
     await this.settings.load();
     const s = this.settings.get();
@@ -87,8 +101,16 @@ export class VtuberEngine {
       }
     }
 
-    // 설정 변경 감시 — 설정 모달/CLI 로 modelPath 가 바뀌면 캐릭터 라이브 교체.
+    // 설정 변경 감시 — modelPath 는 캐릭터 라이브 교체, agent/모델은 연결 폐기(다음 턴에 재연결).
+    let lastAgent = this.agentSetting() + "|" + this.agentModelSetting();
     this.app.settings.onChange(() => {
+      const agent = this.agentSetting() + "|" + this.agentModelSetting();
+      if (agent !== lastAgent) {
+        lastAgent = agent;
+        this.acp.dispose();
+        this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
+        this.emit({ kind: "state" });
+      }
       const next = this.configuredModelPath();
       if (!next || next === this.renderer.info?.path) return;
       void this.loadModel(next).catch((e) => this.sys(`model switch failed: ${String(e)}`));

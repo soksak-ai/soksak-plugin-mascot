@@ -40243,7 +40243,7 @@ var DEFAULT_EMOTIONS = [
 ];
 function personaPreamble(emotions) {
   const tags = emotions.map((e2) => `[${e2}]`).join(" ");
-  return `You are a VTuber companion character shown as a Live2D avatar. Reply conversationally in the user's language, 1-4 short sentences. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions.
+  return `You are a VTuber companion character shown as a Live2D avatar. Reply conversationally in the user's language, 1-4 short sentences. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
 
 `;
 }
@@ -40754,9 +40754,10 @@ var SpeechQueue = class {
 // src/acp.ts
 var CORE = "plugin.soksak-plugin-agents-acp.";
 var AcpChat = class {
-  constructor(app, agent) {
+  constructor(app, agent, model = () => "") {
     this.app = app;
     this.agent = agent;
+    this.model = model;
   }
   connId = null;
   sessionId = null;
@@ -40781,7 +40782,8 @@ var AcpChat = class {
     if (typeof c2.connId !== "number") throw new Error("acp connect: connId missing");
     let s2;
     try {
-      s2 = await this.core("session-new", { connId: c2.connId });
+      const model = this.model().trim();
+      s2 = await this.core("session-new", { connId: c2.connId, ...model ? { model } : {} });
     } catch (e2) {
       await this.core("disconnect", { connId: c2.connId }).catch(() => {
       });
@@ -40820,7 +40822,7 @@ var AcpChat = class {
       const body = this.preambleSent ? text : preamble + text;
       let r2;
       try {
-        r2 = await this.core("prompt", { connId, sessionId, text: body });
+        r2 = await this.core("prompt", { connId, sessionId, text: body, timeoutMs: 18e4 });
       } catch (e2) {
         this.drop();
         throw e2;
@@ -40851,7 +40853,11 @@ var VtuberEngine = class {
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
-    this.acp = new AcpChat(app, () => "claude");
+    this.acp = new AcpChat(
+      app,
+      () => this.agentSetting(),
+      () => this.agentModelSetting()
+    );
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v2 = this.app.settings.get("voiceName");
@@ -40891,6 +40897,14 @@ var VtuberEngine = class {
     const v2 = this.app.settings.get("modelPath");
     return typeof v2 === "string" ? v2.trim() : "";
   }
+  agentSetting() {
+    const v2 = this.app.settings.get("agent");
+    return v2 === "codex" || v2 === "gemini" ? v2 : "claude";
+  }
+  agentModelSetting() {
+    const v2 = this.app.settings.get("agentModel");
+    return typeof v2 === "string" ? v2.trim() : "";
+  }
   async init() {
     await this.settings.load();
     const s2 = this.settings.get();
@@ -40907,7 +40921,15 @@ var VtuberEngine = class {
         this.sys(`model restore failed: ${String(e2)}`);
       }
     }
+    let lastAgent = this.agentSetting() + "|" + this.agentModelSetting();
     this.app.settings.onChange(() => {
+      const agent = this.agentSetting() + "|" + this.agentModelSetting();
+      if (agent !== lastAgent) {
+        lastAgent = agent;
+        this.acp.dispose();
+        this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
+        this.emit({ kind: "state" });
+      }
       const next = this.configuredModelPath();
       if (!next || next === this.renderer.info?.path) return;
       void this.loadModel(next).catch((e2) => this.sys(`model switch failed: ${String(e2)}`));

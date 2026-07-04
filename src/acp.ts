@@ -19,6 +19,7 @@ export class AcpChat {
   constructor(
     private app: HostApp,
     private agent: () => string, // preset: claude/codex/gemini
+    private model: () => string = () => "", // 세션 모델 id("" = 에이전트 기본)
   ) {}
 
   connected(): boolean {
@@ -43,7 +44,8 @@ export class AcpChat {
     if (typeof c.connId !== "number") throw new Error("acp connect: connId missing");
     let s: Record<string, any>;
     try {
-      s = await this.core("session-new", { connId: c.connId });
+      const model = this.model().trim();
+      s = await this.core("session-new", { connId: c.connId, ...(model ? { model } : {}) });
     } catch (e) {
       await this.core("disconnect", { connId: c.connId }).catch(() => {});
       throw e;
@@ -82,7 +84,8 @@ export class AcpChat {
       const body = this.preambleSent ? text : preamble + text;
       let r: Record<string, any>;
       try {
-        r = await this.core("prompt", { connId, sessionId, text: body });
+        // timeoutMs — 코어 기본(10s)은 고추론 모델 첫 턴에 부족. 대화 턴 상한 3분.
+        r = await this.core("prompt", { connId, sessionId, text: body, timeoutMs: 180000 });
       } catch (e) {
         this.drop(); // 연결 유실/실패 — 다음 턴에 재연결
         throw e;

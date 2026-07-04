@@ -40,6 +40,51 @@
       }
     },
     {
+      "key": "agent",
+      "type": "enum",
+      "default": "claude",
+      "enum": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "enumLabels": [
+        {
+          "en": "Claude",
+          "ko": "Claude"
+        },
+        {
+          "en": "Codex (ChatGPT)",
+          "ko": "Codex (ChatGPT)"
+        },
+        {
+          "en": "Gemini",
+          "ko": "Gemini"
+        }
+      ],
+      "title": {
+        "en": "Chat agent",
+        "ko": "대화 에이전트"
+      },
+      "description": {
+        "en": "Which local agent (via agents-acp) answers the chat. Switching reconnects on the next turn.",
+        "ko": "대화에 답할 로컬 에이전트(agents-acp 경유). 바꾸면 다음 턴에 재연결된다."
+      }
+    },
+    {
+      "key": "agentModel",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Agent model",
+        "ko": "에이전트 모델"
+      },
+      "description": {
+        "en": "Model id for the agent session (e.g. gpt-5.4-mini[low] for codex). Empty = agent default. Available ids are printed by the agent's session.",
+        "ko": "에이전트 세션 모델 id (예: codex 는 gpt-5.4-mini[low]). 비우면 에이전트 기본값."
+      }
+    },
+    {
       "key": "voiceName",
       "type": "string",
       "default": "",
