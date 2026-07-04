@@ -130,15 +130,30 @@
       "default": "vits",
       "enum": [
         "vits",
-        "kokoro"
+        "kokoro",
+        "supertonic"
+      ],
+      "enumLabels": [
+        {
+          "en": "VITS (sherpa)",
+          "ko": "VITS (sherpa)"
+        },
+        {
+          "en": "Kokoro (sherpa)",
+          "ko": "Kokoro (sherpa)"
+        },
+        {
+          "en": "Supertonic",
+          "ko": "Supertonic"
+        }
       ],
       "title": {
         "en": "Speech engine",
         "ko": "음성 엔진"
       },
       "description": {
-        "en": "sherpa-onnx model family of the speech model dir.",
-        "ko": "음성 모델 디렉토리의 sherpa-onnx 모델 계열."
+        "en": "Model family of the speech model dir. supertonic expects onnx/ + voice_styles/ (speaker id picks a style).",
+        "ko": "음성 모델 디렉토리의 모델 계열. supertonic 은 onnx/ + voice_styles/ 구조(화자 번호=스타일 선택)."
       }
     },
     {

@@ -40890,14 +40890,14 @@ var SpeechSidecarProc = class {
     }
   }
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
-  async tts(text, sid, speed, p3) {
+  async tts(text, lang, sid, speed, p3) {
     if (!await this.ensure() || this.handle == null) return null;
     const id = this.nextId++;
     this.pending.set(id, p3);
     try {
       await this.app.process.write(
         this.handle,
-        JSON.stringify({ id, op: "tts", stream: true, text, sid, speed }) + "\n"
+        JSON.stringify({ id, op: "tts", stream: true, text, lang, sid, speed }) + "\n"
       );
       return id;
     } catch (e2) {
@@ -40967,7 +40967,7 @@ var SidecarTts = class {
     };
     this.raf = requestAnimationFrame(tick);
   }
-  speak(text, _lang) {
+  speak(text, lang) {
     return new Promise((resolve2) => {
       const { ctx, analyser } = this.ensureCtx();
       if (ctx.state === "suspended") void ctx.resume();
@@ -40981,7 +40981,7 @@ var SidecarTts = class {
       const maybeFinish = () => {
         if (done && this.playing.size === 0) finish();
       };
-      void this.proc.tts(text, this.opts.speakerId(), this.opts.speed(), {
+      void this.proc.tts(text, lang.slice(0, 2).toLowerCase(), this.opts.speakerId(), this.opts.speed(), {
         onChunk: (pcm, sampleRate) => {
           const n2 = pcm.byteLength >> 1;
           if (n2 === 0) return;

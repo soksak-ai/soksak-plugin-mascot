@@ -143,14 +143,14 @@ class SpeechSidecarProc {
   }
 
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
-  async tts(text: string, sid: number, speed: number, p: Pending): Promise<number | null> {
+  async tts(text: string, lang: string, sid: number, speed: number, p: Pending): Promise<number | null> {
     if (!(await this.ensure()) || this.handle == null) return null;
     const id = this.nextId++;
     this.pending.set(id, p);
     try {
       await this.app.process!.write(
         this.handle,
-        JSON.stringify({ id, op: "tts", stream: true, text, sid, speed }) + "\n",
+        JSON.stringify({ id, op: "tts", stream: true, text, lang, sid, speed }) + "\n",
       );
       return id;
     } catch (e) {
@@ -239,7 +239,7 @@ export class SidecarTts implements TtsEngine {
     this.raf = requestAnimationFrame(tick);
   }
 
-  speak(text: string, _lang: string): Promise<void> {
+  speak(text: string, lang: string): Promise<void> {
     return new Promise((resolve) => {
       const { ctx, analyser } = this.ensureCtx();
       if (ctx.state === "suspended") void ctx.resume();
@@ -255,7 +255,7 @@ export class SidecarTts implements TtsEngine {
         if (done && this.playing.size === 0) finish();
       };
       void this.proc
-        .tts(text, this.opts.speakerId(), this.opts.speed(), {
+        .tts(text, lang.slice(0, 2).toLowerCase(), this.opts.speakerId(), this.opts.speed(), {
           onChunk: (pcm, sampleRate) => {
             const n = pcm.byteLength >> 1;
             if (n === 0) return;
