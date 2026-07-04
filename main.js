@@ -41157,109 +41157,151 @@ var ClaudeCliChat = class {
     this.app = app;
     this.model = model;
   }
+  handle = null;
+  spawnedModel = "";
+  buf = "";
+  subs = [];
   sessionId = null;
   preambleSent = false;
-  inFlight = false;
-  curHandle = null;
+  turn = null;
   connected() {
-    return this.sessionId != null;
+    return this.handle != null;
   }
   busy() {
-    return this.inFlight;
+    return this.turn != null;
   }
-  async ask(text, preamble, onDelta) {
-    if (this.inFlight) throw new Error("turn already in flight");
+  effModel() {
+    return this.model().trim() || "haiku";
+  }
+  teardown() {
+    for (const s2 of this.subs) s2.dispose();
+    this.subs = [];
+    this.handle = null;
+    this.buf = "";
+    this.preambleSent = this.sessionId != null && this.preambleSent;
+  }
+  async ensureProc() {
     const proc = this.app.process;
     if (!proc) throw new Error("process permission unavailable");
-    this.inFlight = true;
-    const body = this.preambleSent ? text : preamble + text;
-    const model = this.model().trim() || "haiku";
+    if (this.handle != null && this.spawnedModel !== this.effModel()) {
+      const h2 = this.handle;
+      this.teardown();
+      void proc.kill(h2).catch(() => {
+      });
+    }
+    if (this.handle != null) return;
     const args = [
       "-p",
-      body,
-      "--setting-sources",
-      "",
-      "--model",
-      model,
+      "--input-format",
+      "stream-json",
       "--output-format",
       "stream-json",
       "--include-partial-messages",
       "--verbose",
+      "--setting-sources",
+      "",
+      "--model",
+      this.effModel(),
       ...this.sessionId ? ["--resume", this.sessionId] : []
     ];
-    const t0 = performance.now();
-    let deltas = 0;
-    let firstDeltaMs = null;
-    let lastDeltaMs = null;
-    let streamed = "";
-    let finalText = "";
-    let buf = "";
-    const subs = [];
-    try {
-      const handle = await proc.spawn(
-        "/bin/sh",
-        ["-lc", 'exec claude "$@"', "claude", ...args],
-        { cwd: void 0, envRemove: ["CLAUDECODE"] }
-      );
-      this.curHandle = handle;
-      await proc.closeStdin(handle).catch(() => {
-      });
-      const done = new Promise((resolve2) => {
-        subs.push(
-          proc.onData(handle, (bytes) => {
-            buf += new TextDecoder().decode(bytes);
-            let nl;
-            while ((nl = buf.indexOf("\n")) >= 0) {
-              const line = buf.slice(0, nl).trim();
-              buf = buf.slice(nl + 1);
-              if (!line) continue;
-              let d2;
-              try {
-                d2 = JSON.parse(line);
-              } catch {
-                continue;
-              }
-              if (d2.type === "stream_event" && d2.event?.type === "content_block_delta") {
-                const t2 = d2.event.delta?.text ?? "";
-                if (t2) {
-                  deltas++;
-                  const ms = Math.round(performance.now() - t0);
-                  if (firstDeltaMs == null) firstDeltaMs = ms;
-                  lastDeltaMs = ms;
-                  streamed += t2;
-                  onDelta(t2);
-                }
-              } else if (d2.type === "result") {
-                if (typeof d2.session_id === "string") this.sessionId = d2.session_id;
-                if (d2.subtype === "success") finalText = String(d2.result ?? "");
-                else finalText = "";
-              }
-            }
-          }),
-          proc.onExit(handle, (code2) => resolve2(code2))
-        );
-      });
-      const code = await done;
-      if (code !== 0 && !streamed && !finalText) {
-        this.sessionId = null;
-        throw new Error(`claude -p exited ${code}`);
+    const handle = await proc.spawn("/bin/sh", ["-lc", 'exec claude "$@"', "claude", ...args], {
+      envRemove: ["CLAUDECODE"]
+    });
+    this.handle = handle;
+    this.spawnedModel = this.effModel();
+    this.subs.push(
+      proc.onData(handle, (bytes) => this.feed(bytes)),
+      proc.onExit(handle, (code) => {
+        const t2 = this.turn;
+        this.turn = null;
+        this.teardown();
+        t2?.fail(new Error(`claude -p exited (${code})`));
+      })
+    );
+  }
+  feed(bytes) {
+    this.buf += new TextDecoder().decode(bytes);
+    let nl;
+    while ((nl = this.buf.indexOf("\n")) >= 0) {
+      const line = this.buf.slice(0, nl).trim();
+      this.buf = this.buf.slice(nl + 1);
+      if (!line) continue;
+      let d2;
+      try {
+        d2 = JSON.parse(line);
+      } catch {
+        continue;
       }
-      this.preambleSent = true;
-      return {
-        text: (finalText || streamed).trim(),
-        stopReason: void 0,
-        stream: { deltas, firstDeltaMs, lastDeltaMs }
-      };
-    } finally {
-      for (const s2 of subs) s2.dispose();
-      this.curHandle = null;
-      this.inFlight = false;
+      if (typeof d2.session_id === "string") this.sessionId = d2.session_id;
+      const t2 = this.turn;
+      if (!t2) continue;
+      if (d2.type === "stream_event" && d2.event?.type === "content_block_delta") {
+        const txt = d2.event.delta?.text ?? "";
+        if (txt) {
+          t2.deltas++;
+          const ms = Math.round(performance.now() - t2.t0);
+          if (t2.firstDeltaMs == null) t2.firstDeltaMs = ms;
+          t2.lastDeltaMs = ms;
+          t2.streamed += txt;
+          t2.onDelta(txt);
+        }
+      } else if (d2.type === "result") {
+        if (d2.subtype === "success") t2.finalText = String(d2.result ?? "");
+        this.turn = null;
+        t2.finish({
+          text: (t2.finalText || t2.streamed).trim(),
+          deltas: t2.deltas,
+          firstDeltaMs: t2.firstDeltaMs,
+          lastDeltaMs: t2.lastDeltaMs
+        });
+      }
     }
   }
-  async cancel() {
-    if (this.curHandle != null) {
-      await this.app.process?.kill(this.curHandle).catch(() => {
+  async ask(text, preamble, onDelta) {
+    if (this.turn) throw new Error("turn already in flight");
+    await this.ensureProc();
+    const proc = this.app.process;
+    const body = this.preambleSent ? text : preamble + text;
+    return new Promise((resolve2, reject) => {
+      this.turn = {
+        onDelta,
+        finish: (r2) => {
+          this.preambleSent = true;
+          resolve2({
+            text: r2.text,
+            stopReason: void 0,
+            stream: { deltas: r2.deltas, firstDeltaMs: r2.firstDeltaMs, lastDeltaMs: r2.lastDeltaMs }
+          });
+        },
+        fail: reject,
+        t0: performance.now(),
+        deltas: 0,
+        firstDeltaMs: null,
+        lastDeltaMs: null,
+        streamed: "",
+        finalText: ""
+      };
+      const msg = {
+        type: "user",
+        message: { role: "user", content: [{ type: "text", text: body }] }
+      };
+      void proc.write(this.handle, JSON.stringify(msg) + "\n").catch((e2) => {
+        const t2 = this.turn;
+        this.turn = null;
+        t2?.fail(e2 instanceof Error ? e2 : new Error(String(e2)));
       });
+    });
+  }
+  /** 진행 중 턴 중단 — 상주 프로세스를 죽인다(다음 턴에 --resume 재기동, 대화 유지). */
+  async cancel() {
+    if (this.handle != null) {
+      const h2 = this.handle;
+      const t2 = this.turn;
+      this.turn = null;
+      this.teardown();
+      await this.app.process?.kill(h2).catch(() => {
+      });
+      t2?.fail(new Error("cancelled"));
     }
   }
   dispose() {
