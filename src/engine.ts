@@ -51,12 +51,18 @@ export class VtuberEngine {
       const v = this.app.settings.get(key);
       return typeof v === "string" ? v.trim() : "";
     };
+    const num = (key: string, dflt: number) => {
+      const v = this.app.settings.get(key);
+      return typeof v === "number" && Number.isFinite(v) ? v : dflt;
+    };
     this.sidecar = new SidecarTts(
       app,
       {
         bin: () => str("speechSidecarBin"),
         modelDir: () => str("speechModelDir"),
         engine: () => str("speechEngine") || "vits",
+        speakerId: () => Math.max(0, Math.round(num("speechSpeakerId", 0))),
+        speed: () => Math.min(3, Math.max(0.5, num("speechSpeed", 1.0))),
       },
       (v) => this.renderer.setMouthLevel(v > 0 || this.speech.speaking ? v : null),
     );
@@ -198,6 +204,7 @@ export class VtuberEngine {
       ttsAvailable: this.tts.available() || this.sidecar.available(),
       speechEngine: this.usingSidecar() ? "sidecar" : "os",
       sidecarRunning: this.sidecar.running(),
+      sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
       agentConnected: this.acp.connected(),
@@ -285,16 +292,22 @@ export class VtuberEngine {
     return utterances;
   }
 
-  /** 한 대화 턴 — acp(claude) 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답 반환. */
-  async chat(text: string): Promise<{ reply: string; utterances: Utterance[] }> {
+  /** 한 대화 턴 — 에이전트 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답+타이밍 반환.
+   *  timing.firstSentenceMs ≈ turnMs 이면 에이전트가 델타를 통짜로 보낸 것(파이프라인 지연 아님). */
+  async chat(
+    text: string,
+  ): Promise<{ reply: string; utterances: Utterance[]; timing: { turnMs: number; firstSentenceMs: number | null } }> {
     if (this.turnBusy) throw new Error("turn already in flight");
     this.turnBusy = true;
     this.emit({ kind: "state" });
     this.pushChat({ who: "user", text });
+    const t0 = performance.now();
+    let firstSentenceMs: number | null = null;
     const utterances: Utterance[] = [];
     const seg = new StreamSegmenter((sentence) => {
       const u = extractEmotion(sentence, DEFAULT_EMOTIONS);
       if (u.text) {
+        if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
         utterances.push(u);
         this.speech.enqueue(u);
         this.pushChat({ who: "char", text: u.text });
@@ -313,7 +326,11 @@ export class VtuberEngine {
         }
       }
       const reply = utterances.map((u) => u.text).join(" ");
-      return { reply, utterances };
+      return {
+        reply,
+        utterances,
+        timing: { turnMs: Math.round(performance.now() - t0), firstSentenceMs },
+      };
     } catch (e) {
       this.sys(`${String(e)}`);
       throw e;

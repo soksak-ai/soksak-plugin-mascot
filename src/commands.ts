@@ -70,7 +70,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
       const text = String(p.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
       const r = await engine.chat(text);
-      return { ok: true, reply: r.reply, utterances: r.utterances };
+      return { ok: true, reply: r.reply, utterances: r.utterances, timing: r.timing };
     },
   });
 

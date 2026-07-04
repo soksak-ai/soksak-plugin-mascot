@@ -40243,7 +40243,7 @@ var DEFAULT_EMOTIONS = [
 ];
 function personaPreamble(emotions) {
   const tags = emotions.map((e2) => `[${e2}]`).join(" ");
-  return `You are a VTuber companion character shown as a Live2D avatar. Reply conversationally in the user's language, 1-4 short sentences. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
+  return `You are a VTuber companion character shown as a Live2D avatar. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
 
 `;
 }
@@ -40782,6 +40782,12 @@ var SpeechSidecarProc = class {
   pending = /* @__PURE__ */ new Map();
   subs = [];
   starting = null;
+  spawnedSig = "";
+  // 스폰 당시 설정 시그니처 — 달라지면 재기동(모델/엔진 라이브 교체)
+  info = null;
+  sig() {
+    return `${this.opts.bin()}|${this.opts.modelDir()}|${this.opts.engine() || "vits"}`;
+  }
   configured() {
     return this.opts.bin().length > 0 && this.opts.modelDir().length > 0;
   }
@@ -40799,6 +40805,12 @@ var SpeechSidecarProc = class {
     this.buf = "";
   }
   async ensure() {
+    if (this.handle != null && this.spawnedSig !== this.sig()) {
+      const h2 = this.handle;
+      this.teardown();
+      void this.app.process?.kill(h2).catch(() => {
+      });
+    }
     if (this.handle != null) return true;
     if (this.starting) return this.starting;
     this.starting = this.start().finally(() => {
@@ -40817,6 +40829,7 @@ var SpeechSidecarProc = class {
         this.opts.engine() || "vits"
       ]);
       this.handle = handle;
+      this.spawnedSig = this.sig();
       this.subs.push(
         proc.onData(handle, (bytes) => this.feed(bytes)),
         proc.onExit(handle, (code) => {
@@ -40825,6 +40838,15 @@ var SpeechSidecarProc = class {
           this.teardown();
         })
       );
+      const id = this.nextId++;
+      this.pending.set(id, {
+        onChunk: () => {
+        },
+        onDone: () => {
+        }
+      });
+      void proc.write(handle, JSON.stringify({ id, op: "info" }) + "\n").catch(() => {
+      });
       return true;
     } catch (e2) {
       console.error("[vtuber] speech sidecar spawn \uC2E4\uD328:", e2);
@@ -40845,6 +40867,14 @@ var SpeechSidecarProc = class {
       } catch {
         continue;
       }
+      if (typeof msg.spec === "string" && typeof msg.sampleRate === "number") {
+        this.info = {
+          engine: String(msg.engine ?? ""),
+          model: String(msg.model ?? ""),
+          sampleRate: msg.sampleRate,
+          numSpeakers: Number(msg.numSpeakers ?? 1)
+        };
+      }
       const p3 = this.pending.get(msg.id);
       if (!p3) continue;
       if (typeof msg.pcmBase64 === "string") {
@@ -40860,14 +40890,14 @@ var SpeechSidecarProc = class {
     }
   }
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
-  async tts(text, speed, p3) {
+  async tts(text, sid, speed, p3) {
     if (!await this.ensure() || this.handle == null) return null;
     const id = this.nextId++;
     this.pending.set(id, p3);
     try {
       await this.app.process.write(
         this.handle,
-        JSON.stringify({ id, op: "tts", stream: true, text, speed }) + "\n"
+        JSON.stringify({ id, op: "tts", stream: true, text, sid, speed }) + "\n"
       );
       return id;
     } catch (e2) {
@@ -40889,6 +40919,7 @@ var SpeechSidecarProc = class {
 };
 var SidecarTts = class {
   constructor(app, opts, onLevel) {
+    this.opts = opts;
     this.onLevel = onLevel;
     this.proc = new SpeechSidecarProc(app, opts);
   }
@@ -40903,6 +40934,9 @@ var SidecarTts = class {
   }
   running() {
     return this.proc.running();
+  }
+  info() {
+    return this.proc.info;
   }
   ensureCtx() {
     if (!this.ctx) {
@@ -40947,7 +40981,7 @@ var SidecarTts = class {
       const maybeFinish = () => {
         if (done && this.playing.size === 0) finish();
       };
-      void this.proc.tts(text, 1, {
+      void this.proc.tts(text, this.opts.speakerId(), this.opts.speed(), {
         onChunk: (pcm, sampleRate) => {
           const n2 = pcm.byteLength >> 1;
           if (n2 === 0) return;
@@ -41125,12 +41159,18 @@ var VtuberEngine = class {
       const v2 = this.app.settings.get(key);
       return typeof v2 === "string" ? v2.trim() : "";
     };
+    const num = (key, dflt) => {
+      const v2 = this.app.settings.get(key);
+      return typeof v2 === "number" && Number.isFinite(v2) ? v2 : dflt;
+    };
     this.sidecar = new SidecarTts(
       app,
       {
         bin: () => str("speechSidecarBin"),
         modelDir: () => str("speechModelDir"),
-        engine: () => str("speechEngine") || "vits"
+        engine: () => str("speechEngine") || "vits",
+        speakerId: () => Math.max(0, Math.round(num("speechSpeakerId", 0))),
+        speed: () => Math.min(3, Math.max(0.5, num("speechSpeed", 1)))
       },
       (v2) => this.renderer.setMouthLevel(v2 > 0 || this.speech.speaking ? v2 : null)
     );
@@ -41266,6 +41306,7 @@ var VtuberEngine = class {
       ttsAvailable: this.tts.available() || this.sidecar.available(),
       speechEngine: this.usingSidecar() ? "sidecar" : "os",
       sidecarRunning: this.sidecar.running(),
+      sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
       busy: this.turnBusy,
       agentConnected: this.acp.connected(),
@@ -41341,16 +41382,20 @@ var VtuberEngine = class {
     seg.flush();
     return utterances;
   }
-  /** 한 대화 턴 — acp(claude) 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답 반환. */
+  /** 한 대화 턴 — 에이전트 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답+타이밍 반환.
+   *  timing.firstSentenceMs ≈ turnMs 이면 에이전트가 델타를 통짜로 보낸 것(파이프라인 지연 아님). */
   async chat(text) {
     if (this.turnBusy) throw new Error("turn already in flight");
     this.turnBusy = true;
     this.emit({ kind: "state" });
     this.pushChat({ who: "user", text });
+    const t0 = performance.now();
+    let firstSentenceMs = null;
     const utterances = [];
     const seg = new StreamSegmenter((sentence) => {
       const u2 = extractEmotion(sentence, DEFAULT_EMOTIONS);
       if (u2.text) {
+        if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
         utterances.push(u2);
         this.speech.enqueue(u2);
         this.pushChat({ who: "char", text: u2.text });
@@ -41370,7 +41415,11 @@ var VtuberEngine = class {
         }
       }
       const reply = utterances.map((u2) => u2.text).join(" ");
-      return { reply, utterances };
+      return {
+        reply,
+        utterances,
+        timing: { turnMs: Math.round(performance.now() - t0), firstSentenceMs }
+      };
     } catch (e2) {
       this.sys(`${String(e2)}`);
       throw e2;
@@ -41776,7 +41825,7 @@ function registerCommands(ctx, engine2, mascot2) {
       const text = String(p3.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
       const r2 = await engine2.chat(text);
-      return { ok: true, reply: r2.reply, utterances: r2.utterances };
+      return { ok: true, reply: r2.reply, utterances: r2.utterances, timing: r2.timing };
     }
   });
   reg("say", {

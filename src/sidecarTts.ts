@@ -9,7 +9,14 @@ interface Pending {
   onDone(ok: boolean, message?: string): void;
 }
 
-/** 사이드카 프로세스 + 라인 프로토콜 클라이언트(요청 id 라우팅, 재기동). */
+export interface SidecarInfo {
+  engine: string;
+  model: string;
+  sampleRate: number;
+  numSpeakers: number;
+}
+
+/** 사이드카 프로세스 + 라인 프로토콜 클라이언트(요청 id 라우팅, 설정 변경 시 재기동). */
 class SpeechSidecarProc {
   private handle: number | null = null;
   private buf = "";
@@ -17,11 +24,17 @@ class SpeechSidecarProc {
   private pending = new Map<number, Pending>();
   private subs: Disposable[] = [];
   private starting: Promise<boolean> | null = null;
+  private spawnedSig = ""; // 스폰 당시 설정 시그니처 — 달라지면 재기동(모델/엔진 라이브 교체)
+  info: SidecarInfo | null = null;
 
   constructor(
     private app: HostApp,
     private opts: { bin(): string; modelDir(): string; engine(): string },
   ) {}
+
+  private sig(): string {
+    return `${this.opts.bin()}|${this.opts.modelDir()}|${this.opts.engine() || "vits"}`;
+  }
 
   configured(): boolean {
     return this.opts.bin().length > 0 && this.opts.modelDir().length > 0;
@@ -44,6 +57,12 @@ class SpeechSidecarProc {
   }
 
   async ensure(): Promise<boolean> {
+    // 설정(바이너리/모델/엔진)이 바뀌었으면 재기동 — 다른 모델 음성으로 라이브 전환.
+    if (this.handle != null && this.spawnedSig !== this.sig()) {
+      const h = this.handle;
+      this.teardown();
+      void this.app.process?.kill(h).catch(() => {});
+    }
     if (this.handle != null) return true;
     if (this.starting) return this.starting;
     this.starting = this.start().finally(() => {
@@ -63,6 +82,7 @@ class SpeechSidecarProc {
         this.opts.engine() || "vits",
       ]);
       this.handle = handle;
+      this.spawnedSig = this.sig();
       this.subs.push(
         proc.onData(handle, (bytes: Uint8Array) => this.feed(bytes)),
         proc.onExit(handle, (code: number) => {
@@ -71,6 +91,13 @@ class SpeechSidecarProc {
           this.teardown(); // 다음 speak 에서 재기동
         }),
       );
+      // info 1회 — 화자 수(sid 범위)·샘플레이트를 상태에 노출(멀티스피커 모델 안내).
+      const id = this.nextId++;
+      this.pending.set(id, {
+        onChunk: () => {},
+        onDone: () => {},
+      });
+      void proc.write(handle, JSON.stringify({ id, op: "info" }) + "\n").catch(() => {});
       return true;
     } catch (e) {
       console.error("[vtuber] speech sidecar spawn 실패:", e);
@@ -92,6 +119,14 @@ class SpeechSidecarProc {
       } catch {
         continue; // 로그 오염 등 비 JSON 줄 무시(프로토콜 줄만 소비)
       }
+      if (typeof msg.spec === "string" && typeof msg.sampleRate === "number") {
+        this.info = {
+          engine: String(msg.engine ?? ""),
+          model: String(msg.model ?? ""),
+          sampleRate: msg.sampleRate,
+          numSpeakers: Number(msg.numSpeakers ?? 1),
+        };
+      }
       const p = this.pending.get(msg.id);
       if (!p) continue;
       if (typeof msg.pcmBase64 === "string") {
@@ -108,14 +143,14 @@ class SpeechSidecarProc {
   }
 
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
-  async tts(text: string, speed: number, p: Pending): Promise<number | null> {
+  async tts(text: string, sid: number, speed: number, p: Pending): Promise<number | null> {
     if (!(await this.ensure()) || this.handle == null) return null;
     const id = this.nextId++;
     this.pending.set(id, p);
     try {
       await this.app.process!.write(
         this.handle,
-        JSON.stringify({ id, op: "tts", stream: true, text, speed }) + "\n",
+        JSON.stringify({ id, op: "tts", stream: true, text, sid, speed }) + "\n",
       );
       return id;
     } catch (e) {
@@ -148,7 +183,13 @@ export class SidecarTts implements TtsEngine {
 
   constructor(
     app: HostApp,
-    opts: { bin(): string; modelDir(): string; engine(): string },
+    private opts: {
+      bin(): string;
+      modelDir(): string;
+      engine(): string;
+      speakerId(): number;
+      speed(): number;
+    },
     private onLevel: (v: number) => void,
   ) {
     this.proc = new SpeechSidecarProc(app, opts);
@@ -160,6 +201,10 @@ export class SidecarTts implements TtsEngine {
 
   running(): boolean {
     return this.proc.running();
+  }
+
+  info(): SidecarInfo | null {
+    return this.proc.info;
   }
 
   private ensureCtx(): { ctx: AudioContext; analyser: AnalyserNode } {
@@ -210,7 +255,7 @@ export class SidecarTts implements TtsEngine {
         if (done && this.playing.size === 0) finish();
       };
       void this.proc
-        .tts(text, 1.0, {
+        .tts(text, this.opts.speakerId(), this.opts.speed(), {
           onChunk: (pcm, sampleRate) => {
             const n = pcm.byteLength >> 1;
             if (n === 0) return;
