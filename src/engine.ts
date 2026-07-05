@@ -74,11 +74,26 @@ export class VtuberEngine {
       (v) => this.renderer.setMouthLevel(v > 0 || this.speech.speaking ? v : null),
     );
     // 합성 경로 선택 — 사이드카(로컬 신경 TTS, 실측 립싱크)가 설정돼 있으면 우선, 아니면 OS 음성.
+    // 사이드카가 오디오를 못 냈으면(기동 실패 등) 그 문장은 OS 음성으로 폴백 — 무음 금지.
     const self = this;
+    let warnedFallback = false;
     const composite: TtsEngine = {
       available: () => self.sidecar.available() || self.tts.available(),
-      speak: (text, lang) =>
-        self.usingSidecar() ? self.sidecar.speak(text, lang) : self.tts.speak(text, lang),
+      speak: async (text, lang) => {
+        if (self.usingSidecar()) {
+          const spoke = await self.sidecar.speakChecked(text, lang);
+          if (spoke) return;
+          if (!warnedFallback) {
+            warnedFallback = true;
+            self.sys("speech sidecar unavailable — falling back to OS voice");
+          }
+        }
+        if (self.tts.available()) {
+          self.renderer.setMouth(true); // OS 경로는 의사 입모양
+          await self.tts.speak(text, lang);
+          self.renderer.setMouth(false);
+        }
+      },
       cancel: () => {
         self.sidecar.cancel();
         self.tts.cancel();

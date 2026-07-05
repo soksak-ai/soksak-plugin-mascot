@@ -243,7 +243,13 @@ export class SidecarTts implements TtsEngine {
   }
 
   speak(text: string, lang: string): Promise<void> {
+    return this.speakChecked(text, lang).then(() => {});
+  }
+
+  /** 발화 시도 — 실제로 오디오가 나갔는지 반환(false = 사이드카 불능, 상위가 폴백 판단). */
+  speakChecked(text: string, lang: string): Promise<boolean> {
     return new Promise((resolve) => {
+      let gotAudio = false;
       const { ctx, analyser } = this.ensureCtx();
       if (ctx.state === "suspended") void ctx.resume();
       let nextAt = 0; // 갭리스 스케줄 커서
@@ -251,7 +257,7 @@ export class SidecarTts implements TtsEngine {
       let reqId: number | null = null;
       const finish = () => {
         if (this.curReq === reqId) this.curReq = null;
-        resolve();
+        resolve(gotAudio);
       };
       const maybeFinish = () => {
         // done 수신 후 마지막 소스 종료까지 대기
@@ -262,6 +268,7 @@ export class SidecarTts implements TtsEngine {
           onChunk: (pcm, sampleRate) => {
             const n = pcm.byteLength >> 1;
             if (n === 0) return;
+            gotAudio = true;
             const i16 = new Int16Array(pcm.buffer, pcm.byteOffset, n);
             const buf = ctx.createBuffer(1, n, sampleRate);
             const ch = buf.getChannelData(0);

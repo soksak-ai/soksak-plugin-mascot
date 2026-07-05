@@ -41018,7 +41018,13 @@ var SidecarTts = class {
     this.raf = requestAnimationFrame(tick);
   }
   speak(text, lang) {
+    return this.speakChecked(text, lang).then(() => {
+    });
+  }
+  /** 발화 시도 — 실제로 오디오가 나갔는지 반환(false = 사이드카 불능, 상위가 폴백 판단). */
+  speakChecked(text, lang) {
     return new Promise((resolve2) => {
+      let gotAudio = false;
       const { ctx, analyser } = this.ensureCtx();
       if (ctx.state === "suspended") void ctx.resume();
       let nextAt = 0;
@@ -41026,7 +41032,7 @@ var SidecarTts = class {
       let reqId = null;
       const finish = () => {
         if (this.curReq === reqId) this.curReq = null;
-        resolve2();
+        resolve2(gotAudio);
       };
       const maybeFinish = () => {
         if (done && this.playing.size === 0) finish();
@@ -41035,6 +41041,7 @@ var SidecarTts = class {
         onChunk: (pcm, sampleRate) => {
           const n2 = pcm.byteLength >> 1;
           if (n2 === 0) return;
+          gotAudio = true;
           const i16 = new Int16Array(pcm.buffer, pcm.byteOffset, n2);
           const buf = ctx.createBuffer(1, n2, sampleRate);
           const ch = buf.getChannelData(0);
@@ -41404,9 +41411,24 @@ var VtuberEngine = class {
       (v2) => this.renderer.setMouthLevel(v2 > 0 || this.speech.speaking ? v2 : null)
     );
     const self2 = this;
+    let warnedFallback = false;
     const composite = {
       available: () => self2.sidecar.available() || self2.tts.available(),
-      speak: (text, lang) => self2.usingSidecar() ? self2.sidecar.speak(text, lang) : self2.tts.speak(text, lang),
+      speak: async (text, lang) => {
+        if (self2.usingSidecar()) {
+          const spoke = await self2.sidecar.speakChecked(text, lang);
+          if (spoke) return;
+          if (!warnedFallback) {
+            warnedFallback = true;
+            self2.sys("speech sidecar unavailable \u2014 falling back to OS voice");
+          }
+        }
+        if (self2.tts.available()) {
+          self2.renderer.setMouth(true);
+          await self2.tts.speak(text, lang);
+          self2.renderer.setMouth(false);
+        }
+      },
       cancel: () => {
         self2.sidecar.cancel();
         self2.tts.cancel();
