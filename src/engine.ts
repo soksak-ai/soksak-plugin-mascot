@@ -206,6 +206,7 @@ export class VtuberEngine {
       model: this.renderer.info?.path ?? null,
       configuredModelPath: this.configuredModelPath(),
       expressions: this.renderer.info?.expressions ?? [],
+      motionGroups: this.renderer.info?.motionGroups ?? [],
       emotionMap: this.emotionMap(),
       mascot: s.mascotOn,
       tts: s.ttsEnabled,

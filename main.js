@@ -40582,6 +40582,17 @@ var Live2DRenderer = class {
       return false;
     }
   }
+  /** 모션 재생 — group 은 model3.json Motions 의 그룹명("" 포함), index 생략 시 그룹 내 무작위.
+   *  priority 3(FORCE) — 대기 모션을 즉시 밀어낸다. 끝나면 자동으로 Idle 로 복귀(라이브러리 기본). */
+  async playMotion(group, index) {
+    if (!this.model) return false;
+    try {
+      return await this.model.motion(group, index, 3) === true;
+    } catch (e2) {
+      console.error("[vtuber] motion \uC7AC\uC0DD \uC2E4\uD328:", e2);
+      return false;
+    }
+  }
   /** 감정→표정 자동 매핑 — 표정 이름에 감정어가 포함되면 채택(대소문자 무시). 못 찾으면 미매핑. */
   autoEmotionMap() {
     const out = {};
@@ -41519,6 +41530,7 @@ var VtuberEngine = class {
       model: this.renderer.info?.path ?? null,
       configuredModelPath: this.configuredModelPath(),
       expressions: this.renderer.info?.expressions ?? [],
+      motionGroups: this.renderer.info?.motionGroups ?? [],
       emotionMap: this.emotionMap(),
       mascot: s2.mascotOn,
       tts: s2.ttsEnabled,
@@ -42143,6 +42155,23 @@ function registerCommands(ctx, engine2, mascot2) {
       if (!map4 || typeof map4 !== "object") return { ok: false, error: "map (json object) required" };
       await engine2.setEmotionMap(map4);
       return { ok: true, emotionMap: map4 };
+    }
+  });
+  reg("motion.play", {
+    description: 'Play a model motion. group = a Motions group from the model (often "Idle" and "" for tap motions); omit index for a random one in the group.',
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uBAA8\uC158 \uC7AC\uC0DD \uB3D9\uC791 \uC6C0\uC9C1\uC784" },
+    params: {
+      group: { type: "string", description: 'motion group name ("" = default group)', required: false },
+      index: { type: "number", description: "motion index within the group (omit = random)", required: false }
+    },
+    examples: [`sok plugin.soksak-plugin-vtuber.motion.play '{"group":""}'`],
+    handler: async (p3) => {
+      const st = engine2.state();
+      if (!st.model) return { ok: false, error: "no model loaded" };
+      const group = typeof p3.group === "string" ? p3.group : "";
+      const index = typeof p3.index === "number" ? p3.index : void 0;
+      const played = await engine2.renderer.playMotion(group, index);
+      return { ok: played, group, ...index !== void 0 ? { index } : {} };
     }
   });
   reg("mascot.toggle", {

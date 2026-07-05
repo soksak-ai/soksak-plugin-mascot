@@ -278,6 +278,18 @@ export class Live2DRenderer {
     }
   }
 
+  /** 모션 재생 — group 은 model3.json Motions 의 그룹명("" 포함), index 생략 시 그룹 내 무작위.
+   *  priority 3(FORCE) — 대기 모션을 즉시 밀어낸다. 끝나면 자동으로 Idle 로 복귀(라이브러리 기본). */
+  async playMotion(group: string, index?: number): Promise<boolean> {
+    if (!this.model) return false;
+    try {
+      return (await this.model.motion(group, index, 3)) === true;
+    } catch (e) {
+      console.error("[vtuber] motion 재생 실패:", e);
+      return false;
+    }
+  }
+
   /** 감정→표정 자동 매핑 — 표정 이름에 감정어가 포함되면 채택(대소문자 무시). 못 찾으면 미매핑. */
   autoEmotionMap(): Record<string, string> {
     const out: Record<string, string> = {};

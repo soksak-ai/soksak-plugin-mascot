@@ -286,6 +286,13 @@
         }
       },
       {
+        "name": "motion.play",
+        "title": {
+          "en": "Plays a model motion",
+          "ko": "모델 모션을 재생합니다"
+        }
+      },
+      {
         "name": "cubism.install",
         "title": {
           "en": "Downloads Cubism Core after license consent",

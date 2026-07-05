@@ -45,6 +45,7 @@ Command names are plugin-relative; the full registry address is `plugin.soksak-p
 | `model.load {path}` | Load `.model3.json` |
 | `expression.list` / `expression.set {name}` | Expressions |
 | `emotion.map {map}` | Emotion→expression mapping |
+| `motion.play {group?, index?}` | Play a model motion (omit index = random in group) |
 | `mascot.toggle {on?}` | Screen mascot overlay |
 | `tts.toggle {on?}` | Voice output |
 

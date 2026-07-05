@@ -180,6 +180,25 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
     },
   });
 
+  reg("motion.play", {
+    description:
+      'Play a model motion. group = a Motions group from the model (often "Idle" and "" for tap motions); omit index for a random one in the group.',
+    triggers: { ko: "브이튜버 모션 재생 동작 움직임" },
+    params: {
+      group: { type: "string", description: 'motion group name ("" = default group)', required: false },
+      index: { type: "number", description: "motion index within the group (omit = random)", required: false },
+    },
+    examples: ['sok plugin.soksak-plugin-vtuber.motion.play \'{"group":""}\''],
+    handler: async (p) => {
+      const st = engine.state();
+      if (!st.model) return { ok: false, error: "no model loaded" };
+      const group = typeof p.group === "string" ? p.group : "";
+      const index = typeof p.index === "number" ? p.index : undefined;
+      const played = await engine.renderer.playMotion(group, index);
+      return { ok: played, group, ...(index !== undefined ? { index } : {}) };
+    },
+  });
+
   reg("mascot.toggle", {
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "브이튜버 마스코트 화면 오버레이 켜기 끄기" },

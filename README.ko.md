@@ -45,6 +45,7 @@ English: [README.md](README.md)
 | `model.load {path}` | `.model3.json` 로드 |
 | `expression.list` / `expression.set {name}` | 표정 |
 | `emotion.map {map}` | 감정→표정 매핑 |
+| `motion.play {group?, index?}` | 모델 모션 재생(index 생략=그룹 내 무작위) |
 | `mascot.toggle {on?}` | 화면 마스코트 |
 | `tts.toggle {on?}` | 음성 출력 |
 
