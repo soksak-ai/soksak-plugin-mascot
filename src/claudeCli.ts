@@ -3,6 +3,8 @@
 // 흘려넣는다 — 턴별 CLI 부팅(~1.5초)이 사라진다. --setting-sources "" = 훅·플러그인 차단
 // (OAuth 유지 — --bare 는 키체인도 스킵해 불가). stdin 은 계속 열어둔다(입력 채널).
 // 프로세스가 죽으면 result 의 session_id 로 --resume 재기동(대화 연속성 유지).
+// 페르소나는 --system-prompt 로 정체성 자체를 교체한다 — 유저 메시지로 주면 "나는 Claude Code"
+// 라며 역할을 거부한다. cwd 도 $HOME 으로 — 프로젝트 cwd 면 코딩 어시스턴트 맥락이 스민다.
 import type { Disposable, HostApp } from "@/types";
 import type { TurnResult } from "@/acp";
 
@@ -24,7 +26,7 @@ export class ClaudeCliChat {
   private buf = "";
   private subs: Disposable[] = [];
   private sessionId: string | null = null;
-  private preambleSent = false;
+  private systemPrompt = "";
   private turn: TurnSink | null = null;
 
   constructor(
@@ -49,7 +51,6 @@ export class ClaudeCliChat {
     this.subs = [];
     this.handle = null;
     this.buf = "";
-    this.preambleSent = this.sessionId != null && this.preambleSent; // resume 시 페르소나 유지
   }
 
   private async ensureProc(): Promise<void> {
@@ -65,6 +66,7 @@ export class ClaudeCliChat {
 
     const args = [
       "-p",
+      ...(this.systemPrompt ? ["--system-prompt", this.systemPrompt] : []),
       "--input-format",
       "stream-json",
       "--output-format",
@@ -78,9 +80,11 @@ export class ClaudeCliChat {
       ...(this.sessionId ? ["--resume", this.sessionId] : []),
     ];
     // GUI 앱은 로그인셸 PATH 미상속 — sh -lc exec 랩(acp-core 선례). CLAUDECODE 제거 = 중첩 세션 가드.
-    const handle = await proc.spawn("/bin/sh", ["-lc", 'exec claude "$@"', "claude", ...args], {
-      envRemove: ["CLAUDECODE"],
-    });
+    const handle = await proc.spawn(
+      "/bin/sh",
+      ["-lc", 'cd "$HOME" 2>/dev/null; exec claude "$@"', "claude", ...args],
+      { envRemove: ["CLAUDECODE"] },
+    );
     this.handle = handle;
     this.spawnedModel = this.effModel();
     this.subs.push(
@@ -135,15 +139,15 @@ export class ClaudeCliChat {
 
   async ask(text: string, preamble: string, onDelta: (t: string) => void): Promise<TurnResult> {
     if (this.turn) throw new Error("turn already in flight");
+    this.systemPrompt = preamble.trim();
     await this.ensureProc();
     const proc = this.app.process!;
-    const body = this.preambleSent ? text : preamble + text;
+    const body = text;
 
     return new Promise<TurnResult>((resolve, reject) => {
       this.turn = {
         onDelta,
         finish: (r) => {
-          this.preambleSent = true;
           resolve({
             text: r.text,
             stopReason: undefined,
@@ -185,6 +189,5 @@ export class ClaudeCliChat {
   dispose(): void {
     void this.cancel();
     this.sessionId = null;
-    this.preambleSent = false;
   }
 }

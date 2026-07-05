@@ -41212,7 +41212,7 @@ var ClaudeCliChat = class {
   buf = "";
   subs = [];
   sessionId = null;
-  preambleSent = false;
+  systemPrompt = "";
   turn = null;
   connected() {
     return this.handle != null;
@@ -41228,7 +41228,6 @@ var ClaudeCliChat = class {
     this.subs = [];
     this.handle = null;
     this.buf = "";
-    this.preambleSent = this.sessionId != null && this.preambleSent;
   }
   async ensureProc() {
     const proc = this.app.process;
@@ -41242,6 +41241,7 @@ var ClaudeCliChat = class {
     if (this.handle != null) return;
     const args = [
       "-p",
+      ...this.systemPrompt ? ["--system-prompt", this.systemPrompt] : [],
       "--input-format",
       "stream-json",
       "--output-format",
@@ -41254,9 +41254,11 @@ var ClaudeCliChat = class {
       this.effModel(),
       ...this.sessionId ? ["--resume", this.sessionId] : []
     ];
-    const handle = await proc.spawn("/bin/sh", ["-lc", 'exec claude "$@"', "claude", ...args], {
-      envRemove: ["CLAUDECODE"]
-    });
+    const handle = await proc.spawn(
+      "/bin/sh",
+      ["-lc", 'cd "$HOME" 2>/dev/null; exec claude "$@"', "claude", ...args],
+      { envRemove: ["CLAUDECODE"] }
+    );
     this.handle = handle;
     this.spawnedModel = this.effModel();
     this.subs.push(
@@ -41309,14 +41311,14 @@ var ClaudeCliChat = class {
   }
   async ask(text, preamble, onDelta) {
     if (this.turn) throw new Error("turn already in flight");
+    this.systemPrompt = preamble.trim();
     await this.ensureProc();
     const proc = this.app.process;
-    const body = this.preambleSent ? text : preamble + text;
+    const body = text;
     return new Promise((resolve2, reject) => {
       this.turn = {
         onDelta,
         finish: (r2) => {
-          this.preambleSent = true;
           resolve2({
             text: r2.text,
             stopReason: void 0,
@@ -41357,7 +41359,6 @@ var ClaudeCliChat = class {
   dispose() {
     void this.cancel();
     this.sessionId = null;
-    this.preambleSent = false;
   }
 };
 
