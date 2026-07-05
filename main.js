@@ -41018,6 +41018,8 @@ var SidecarTts = class {
       if (this.playing.size === 0) {
         this.raf = 0;
         this.onLevel(0);
+        void this.ctx?.suspend().catch(() => {
+        });
         return;
       }
       this.analyser.getByteTimeDomainData(data);
@@ -41104,6 +41106,8 @@ var SidecarTts = class {
     }
     this.playing.clear();
     this.onLevel(0);
+    void this.ctx?.suspend().catch(() => {
+    });
   }
   dispose() {
     this.cancel();

@@ -250,6 +250,10 @@ export class SidecarTts implements TtsEngine {
       if (this.playing.size === 0) {
         this.raf = 0;
         this.onLevel(0);
+        // 침묵 = 오디오 하드웨어도 쉰다 — AudioContext 를 running 으로 방치하면 발화가 없어도
+        // WebAudio 렌더 스레드가 상시 콜백을 돈다(실측: sample 최다 프레임). resume 은 재생
+        // 시작부(ensureCtx 직후)가 이미 담당 — suspend/resume 이 발화와 함께 간다.
+        void this.ctx?.suspend().catch(() => {});
         return;
       }
       this.analyser!.getByteTimeDomainData(data);
@@ -343,6 +347,7 @@ export class SidecarTts implements TtsEngine {
     }
     this.playing.clear();
     this.onLevel(0);
+    void this.ctx?.suspend().catch(() => {});
   }
 
   dispose(): void {
