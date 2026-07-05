@@ -19,7 +19,7 @@ export type EngineEvent =
   | { kind: "subtitle"; text: string }
   | { kind: "state" }; // 모델/마스코트/음성/busy 등 상태 변화 — 뷰는 state() 재조회
 
-export class VtubeTtsEngine {
+export class MascotEngine {
   readonly settings: SettingsStore;
   readonly renderer: Live2DRenderer;
   private tts!: SpeechSynthesisTts;

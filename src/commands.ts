@@ -2,13 +2,13 @@
 // 뷰와 커맨드는 같은 엔진 오퍼레이션을 부른다(표면≡커맨드 등가). description=영어 base,
 // triggers.ko=한국어 트리거어 합성(i18n 두 축).
 import type { PluginCtx } from "@/types";
-import type { VtubeTtsEngine } from "@/engine";
+import type { MascotEngine } from "@/engine";
 import type { MascotOverlay } from "@/mascot";
 import { DEFAULT_EMOTIONS } from "@/pipeline";
 
 const VERSION = "1.0.0";
 
-export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot: MascotOverlay): void {
+export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: MascotOverlay): void {
   const app = ctx.app;
   if (!app.commands?.register) return;
   const reg = (name: string, spec: Parameters<typeof app.commands.register>[1]) =>

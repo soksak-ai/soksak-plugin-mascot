@@ -2,17 +2,17 @@
 // 전 기능이 커맨드(sok plugin.soksak-plugin-mascot.* / MCP / 소켓)와 마스코트 오버레이로만
 // 노출된다 — 다른 플러그인(활동로그·대화 UI)이 say/expression/mascot 으로 구동하는 부품.
 import type { PluginCtx } from "@/types";
-import { VtubeTtsEngine } from "@/engine";
+import { MascotEngine } from "@/engine";
 import { MascotOverlay } from "@/mascot";
 import { registerCommands } from "@/commands";
 
-let engine: VtubeTtsEngine | null = null;
+let engine: MascotEngine | null = null;
 let mascot: MascotOverlay | null = null;
 
 export default {
   activate(ctx: PluginCtx) {
     const app = ctx.app;
-    engine = new VtubeTtsEngine(app, (ctx as { dir?: string }).dir ?? "");
+    engine = new MascotEngine(app, (ctx as { dir?: string }).dir ?? "");
     mascot = new MascotOverlay(engine);
     ctx.subscriptions.push({
       dispose() {

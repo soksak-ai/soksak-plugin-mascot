@@ -41116,7 +41116,7 @@ var SidecarTts = class {
 };
 
 // src/engine.ts
-var VtubeTtsEngine = class {
+var MascotEngine = class {
   constructor(app, pluginDir = "") {
     this.app = app;
     this.pluginDir = pluginDir;
@@ -41688,7 +41688,7 @@ var mascot = null;
 var main_default = {
   activate(ctx) {
     const app = ctx.app;
-    engine = new VtubeTtsEngine(app, ctx.dir ?? "");
+    engine = new MascotEngine(app, ctx.dir ?? "");
     mascot = new MascotOverlay(engine);
     ctx.subscriptions.push({
       dispose() {
