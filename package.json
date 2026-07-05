@@ -10,7 +10,8 @@
     "dev": "node build.mjs --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "license-gate": "node scripts/license-gate.mjs"
+    "license-gate": "node scripts/license-gate.mjs",
+    "test-unit": "npm run typecheck && vitest run"
   },
   "dependencies": {
     "pixi-live2d-display-lipsyncpatch": "0.5.0-ls-8",
