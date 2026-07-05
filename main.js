@@ -41521,8 +41521,8 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("say", {
-    // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. 스펙 차원의 유일한 차단점.
-    tts: false,
+    // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. speak "" 가 유일한 차단점(§3).
+    speak: () => "",
     description: "Speak text locally without the LLM \u2014 runs the sentence/emotion/speech pipeline. Emotion tags like [joy] are honored.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB300\uC0AC \uBC1C\uD654 \uB9D0\uD558\uAE30 \uC790\uB9C9" },
     params: {
@@ -41538,7 +41538,7 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("stop", {
-    tts: false,
+    speak: () => "",
     // 낭독 제어 계열 — say 와 동일하게 침묵
     description: "Stop current speech.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
@@ -41548,7 +41548,7 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("release", {
-    tts: false,
+    speak: () => "",
     description: "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this \u2014 engine lifetime follows speaking rights.",
     triggers: { ko: "\uC5D4\uC9C4 \uBC18\uB0A9 \uC790\uC6D0 \uD574\uC81C \uC0AC\uC774\uB4DC\uCE74 \uB0B4\uB9AC\uAE30" },
     handler: () => {
@@ -41646,7 +41646,7 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("mascot.toggle", {
-    tts: false,
+    speak: () => "",
     // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB9C8\uC2A4\uCF54\uD2B8 \uD654\uBA74 \uC624\uBC84\uB808\uC774 \uCF1C\uAE30 \uB044\uAE30" },
@@ -41662,7 +41662,7 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("tts.toggle", {
-    tts: false,
+    speak: () => "",
     // 표시 제어 계열
     description: "Toggle speech output (subtitles always shown).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uC74C\uC131 \uCD9C\uB825 \uCF1C\uAE30 \uB044\uAE30 \uD1A0\uAE00" },

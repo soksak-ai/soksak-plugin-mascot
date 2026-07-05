@@ -60,8 +60,8 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("say", {
-    // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. 스펙 차원의 유일한 차단점.
-    tts: false,
+    // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. speak "" 가 유일한 차단점(§3).
+    speak: () => "",
     description:
       "Speak text locally without the LLM — runs the sentence/emotion/speech pipeline. Emotion tags like [joy] are honored.",
     triggers: { ko: "브이튜브 대사 발화 말하기 자막" },
@@ -79,7 +79,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("stop", {
-    tts: false, // 낭독 제어 계열 — say 와 동일하게 침묵
+    speak: () => "", // 낭독 제어 계열 — say 와 동일하게 침묵
     description: "Stop current speech.",
     triggers: { ko: "브이튜브 발화 중단 정지" },
     handler: async () => {
@@ -89,7 +89,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("release", {
-    tts: false,
+    speak: () => "",
     description:
       "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this — engine lifetime follows speaking rights.",
     triggers: { ko: "엔진 반납 자원 해제 사이드카 내리기" },
@@ -205,7 +205,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("mascot.toggle", {
-    tts: false, // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
+    speak: () => "", // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "브이튜브 마스코트 화면 오버레이 켜기 끄기" },
     params: {
@@ -221,7 +221,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("tts.toggle", {
-    tts: false, // 표시 제어 계열
+    speak: () => "", // 표시 제어 계열
     description: "Toggle speech output (subtitles always shown).",
     triggers: { ko: "브이튜브 음성 출력 켜기 끄기 토글" },
     params: {
