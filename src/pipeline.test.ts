@@ -7,6 +7,7 @@ describe("extractEmotion", () => {
     const u = extractEmotion("[joy] 반가워요!", DEFAULT_EMOTIONS);
     expect(u.emotion).toBe("joy");
     expect(u.text).toBe("반가워요!");
+    expect(u.speak).toBe("반가워요!");
   });
 
   it("첫 태그가 감정이 되고 나머지 알려진 태그도 제거된다", () => {
@@ -59,6 +60,20 @@ describe("StreamSegmenter", () => {
     seg.feed("   ");
     seg.flush();
     expect(out).toEqual([]);
+  });
+});
+
+describe("표현 태그 분리", () => {
+  it("<laugh> 는 표시에서 숨기고 발화에 보존한다", () => {
+    const u = extractEmotion("[joy] 정말요? <laugh> 대박!", DEFAULT_EMOTIONS);
+    expect(u.emotion).toBe("joy");
+    expect(u.text).toBe("정말요? 대박!");
+    expect(u.speak).toBe("정말요? <laugh> 대박!");
+  });
+  it("미지의 <태그> 는 양쪽 다 보존한다", () => {
+    const u = extractEmotion("코드에 <div> 태그를 쓰세요.", DEFAULT_EMOTIONS);
+    expect(u.text).toBe("코드에 <div> 태그를 쓰세요.");
+    expect(u.speak).toBe(u.text);
   });
 });
 

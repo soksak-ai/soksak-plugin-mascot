@@ -295,7 +295,7 @@ export class VtuberEngine {
     const utterances: Utterance[] = [];
     const seg = new StreamSegmenter((sentence) => {
       const u = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u.text) {
+      if (u.speak) {
         utterances.push(u);
         this.speech.enqueue(u);
       }
@@ -329,11 +329,11 @@ export class VtuberEngine {
     const utterances: Utterance[] = [];
     const seg = new StreamSegmenter((sentence) => {
       const u = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u.text) {
+      if (u.speak) {
         if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
         utterances.push(u);
         this.speech.enqueue(u);
-        this.pushChat({ who: "char", text: u.text });
+        if (u.text) this.pushChat({ who: "char", text: u.text });
       }
     });
     try {

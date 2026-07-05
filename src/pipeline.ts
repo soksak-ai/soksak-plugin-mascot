@@ -13,9 +13,13 @@ export const DEFAULT_EMOTIONS = [
   "disgust",
 ] as const;
 
+// supertonic 3 인라인 표현 태그 — 공식 문서에 명시된 3종만 채택(총 10종이라나 전체 목록 미공개).
+export const EXPRESSION_TAGS = ["laugh", "breath", "sigh"] as const;
+
 /** LLM 에게 감정 태그 발화를 지시하는 페르소나 프리앰블(세션 첫 턴에 1회 주입). */
 export function personaPreamble(emotions: readonly string[]): string {
   const tags = emotions.map((e) => `[${e}]`).join(" ");
+  const expr = EXPRESSION_TAGS.map((e) => `<${e}>`).join(" ");
   return (
     "You are a VTuber companion character shown as a Live2D avatar. " +
     "This is casual voice chat: answer instantly from your own knowledge. " +
@@ -23,15 +27,17 @@ export function personaPreamble(emotions: readonly string[]): string {
     "Reply conversationally in the user's language, 1-4 short sentences. " +
     "Open with a very short first sentence so speech can start immediately. " +
     `When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. ` +
+    `You may drop an inline vocal expression tag (${expr}) inside a sentence where it feels natural — at most one per reply. ` +
     "Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. " +
     "Output only the character's spoken dialogue — never narrate tools, skills, files, or system actions.\n\n"
   );
 }
 
-/** 문장에서 선두/중간의 알려진 [태그] 를 추출하고 제거. 미지의 대괄호 내용은 보존(과잉 삭제 금지). */
+/** 문장에서 선두/중간의 알려진 [태그] 를 추출하고 제거. 미지의 대괄호 내용은 보존(과잉 삭제 금지).
+ *  <laugh> 류 표현 태그는 speak(발화 텍스트)에 보존하고 text(표시 텍스트)에서만 숨긴다. */
 export function extractEmotion(sentence: string, known: readonly string[]): Utterance {
   let emotion: string | null = null;
-  const clean = sentence
+  const speak = sentence
     .replace(/\[([a-zA-Z_-]+)\]/g, (whole, tag: string) => {
       const t = tag.toLowerCase();
       if (known.includes(t)) {
@@ -42,7 +48,13 @@ export function extractEmotion(sentence: string, known: readonly string[]): Utte
     })
     .replace(/\s{2,}/g, " ")
     .trim();
-  return { text: clean, emotion };
+  const text = speak
+    .replace(/<([a-zA-Z_]+)>/g, (whole, tag: string) =>
+      (EXPRESSION_TAGS as readonly string[]).includes(tag.toLowerCase()) ? "" : whole,
+    )
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { text, speak, emotion };
 }
 
 /** 스트리밍 델타를 먹여 완결 문장 단위로 뱉는 분절기.

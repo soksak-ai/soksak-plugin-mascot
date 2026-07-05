@@ -40241,15 +40241,17 @@ var DEFAULT_EMOTIONS = [
   "fear",
   "disgust"
 ];
+var EXPRESSION_TAGS = ["laugh", "breath", "sigh"];
 function personaPreamble(emotions) {
   const tags = emotions.map((e2) => `[${e2}]`).join(" ");
-  return `You are a VTuber companion character shown as a Live2D avatar. This is casual voice chat: answer instantly from your own knowledge. Never use tools, skills, commands, or read files \u2014 plain conversation only. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
+  const expr = EXPRESSION_TAGS.map((e2) => `<${e2}>`).join(" ");
+  return `You are a VTuber companion character shown as a Live2D avatar. This is casual voice chat: answer instantly from your own knowledge. Never use tools, skills, commands, or read files \u2014 plain conversation only. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. You may drop an inline vocal expression tag (${expr}) inside a sentence where it feels natural \u2014 at most one per reply. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
 
 `;
 }
 function extractEmotion(sentence, known) {
   let emotion = null;
-  const clean = sentence.replace(/\[([a-zA-Z_-]+)\]/g, (whole, tag) => {
+  const speak = sentence.replace(/\[([a-zA-Z_-]+)\]/g, (whole, tag) => {
     const t2 = tag.toLowerCase();
     if (known.includes(t2)) {
       if (!emotion) emotion = t2;
@@ -40257,7 +40259,11 @@ function extractEmotion(sentence, known) {
     }
     return whole;
   }).replace(/\s{2,}/g, " ").trim();
-  return { text: clean, emotion };
+  const text = speak.replace(
+    /<([a-zA-Z_]+)>/g,
+    (whole, tag) => EXPRESSION_TAGS.includes(tag.toLowerCase()) ? "" : whole
+  ).replace(/\s{2,}/g, " ").trim();
+  return { text, speak, emotion };
 }
 var StreamSegmenter = class {
   constructor(onSentence) {
@@ -40734,7 +40740,7 @@ var SpeechQueue = class {
   cancelled = false;
   speaking = false;
   enqueue(u2) {
-    if (!u2.text) return;
+    if (!u2.speak) return;
     this.q.push(u2);
     void this.pump();
   }
@@ -40754,7 +40760,7 @@ var SpeechQueue = class {
         this.speaking = true;
         this.events.onStart(u2);
         if (this.opts.enabled() && this.engine.available()) {
-          await this.engine.speak(u2.text, this.opts.lang());
+          await this.engine.speak(u2.speak, this.opts.lang());
         } else {
           const ms = Math.min(4500, Math.max(800, u2.text.length * 55));
           await new Promise((r2) => setTimeout(r2, ms));
@@ -41557,7 +41563,7 @@ var VtuberEngine = class {
     const utterances = [];
     const seg = new StreamSegmenter((sentence) => {
       const u2 = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u2.text) {
+      if (u2.speak) {
         utterances.push(u2);
         this.speech.enqueue(u2);
       }
@@ -41578,11 +41584,11 @@ var VtuberEngine = class {
     const utterances = [];
     const seg = new StreamSegmenter((sentence) => {
       const u2 = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u2.text) {
+      if (u2.speak) {
         if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
         utterances.push(u2);
         this.speech.enqueue(u2);
-        this.pushChat({ who: "char", text: u2.text });
+        if (u2.text) this.pushChat({ who: "char", text: u2.text });
       }
     });
     try {

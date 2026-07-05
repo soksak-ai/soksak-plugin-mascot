@@ -95,6 +95,7 @@ export interface PluginCtx {
 
 // 한 문장 발화 단위 — 파이프라인의 유통 화폐.
 export interface Utterance {
-  text: string; // 태그 제거된 표시/발화 텍스트
+  text: string; // 표시용(감정 태그·표현 태그 제거)
+  speak: string; // 발화용(감정 태그 제거, <laugh> 류 표현 태그는 보존 — supertonic 3 이 렌더)
   emotion: string | null; // 추출된 감정 태그(예: "joy") — 없으면 null
 }

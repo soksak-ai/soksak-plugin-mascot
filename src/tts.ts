@@ -157,7 +157,7 @@ export class SpeechQueue {
   ) {}
 
   enqueue(u: Utterance): void {
-    if (!u.text) return;
+    if (!u.speak) return;
     this.q.push(u);
     void this.pump();
   }
@@ -179,7 +179,7 @@ export class SpeechQueue {
         this.speaking = true;
         this.events.onStart(u);
         if (this.opts.enabled() && this.engine.available()) {
-          await this.engine.speak(u.text, this.opts.lang());
+          await this.engine.speak(u.speak, this.opts.lang());
         } else {
           // 음성 없음 — 자막 리듬만(읽기 속도 근사: 글자당 55ms, 0.8~4.5s 클램프)
           const ms = Math.min(4500, Math.max(800, u.text.length * 55));
