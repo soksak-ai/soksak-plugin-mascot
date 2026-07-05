@@ -1,11 +1,11 @@
 {
-  "name": "soksak-plugin-vtube-tts",
+  "name": "soksak-plugin-mascot",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "description": "soksak 브이튜브 TTS — 캐릭터 표현 엔진(마스코트+음성, 뷰 없음)",
   "scripts": {
-    "build": "node build.mjs",
+    "build": "tsc --noEmit && node build.mjs",
     "dev": "node build.mjs --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

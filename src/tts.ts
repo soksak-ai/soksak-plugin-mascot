@@ -122,7 +122,7 @@ export class SpeechSynthesisTts implements TtsEngine {
     const ok = await this.speakOnce(text, lang, voice);
     if (!ok && voice) {
       // 지정/선호 보이스 실패(잘못된 voiceName 등) — 로케일 기본으로 1회 폴백(무음 근치).
-      console.warn(`[vtube-tts] voice "${voice.name}" failed — falling back to locale default`);
+      console.warn(`[mascot] voice "${voice.name}" failed — falling back to locale default`);
       await this.speakOnce(text, lang, null);
     }
   }

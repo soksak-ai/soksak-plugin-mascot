@@ -34,7 +34,7 @@ export class SettingsStore {
       const raw = (await this.app.data?.kv.get(KEY)) as Partial<VtubeTtsSettings> | null;
       if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
     } catch (e) {
-      console.error("[vtube-tts] settings load 실패:", e);
+      console.error("[mascot] settings load 실패:", e);
     }
     return this.cur;
   }
@@ -44,7 +44,7 @@ export class SettingsStore {
     try {
       await this.app.data?.kv.set(KEY, this.cur);
     } catch (e) {
-      console.error("[vtube-tts] settings save 실패:", e);
+      console.error("[mascot] settings save 실패:", e);
     }
     return this.cur;
   }

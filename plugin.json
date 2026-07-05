@@ -1,12 +1,12 @@
 {
   "spec": "soksak-spec-plugin@0.0.1",
-  "id": "soksak-plugin-vtube-tts",
+  "id": "soksak-plugin-mascot",
   "name": {
     "en": "VTube TTS",
     "ko": "브이튜브 TTS"
   },
   "version": "0.0.1",
-  "repo": "https://github.com/soksak-ai/soksak-plugin-vtube-tts.git",
+  "repo": "https://github.com/soksak-ai/soksak-plugin-mascot.git",
   "description": {
     "en": "Character presentation engine — a Live2D mascot overlay with local neural TTS, measured lip-sync, expressions and motions. No views of its own: other plugins (activity log, chat UIs) drive it through commands (say/expression/motion/mascot).",
     "ko": "캐릭터 표현 엔진 — Live2D 마스코트 오버레이 + 로컬 신경 TTS, 실측 립싱크, 표정·모션. 자체 뷰 없음: 다른 플러그인(활동로그·대화 UI)이 커맨드(say/expression/motion/mascot)로 구동한다."
@@ -237,7 +237,7 @@
         }
       },
       {
-        "name": "mascot.toggle",
+        "name": "toggle",
         "title": {
           "en": "Toggles the screen mascot overlay",
           "ko": "화면 마스코트 오버레이를 켜고 끕니다"

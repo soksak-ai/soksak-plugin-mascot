@@ -17,7 +17,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   reg("ping", {
     description: "Health check — plugin load/version probe (E2E).",
     triggers: { ko: "브이튜브 플러그인 상태 점검 핑" },
-    handler: () => ({ ok: true, plugin: "soksak-plugin-vtube-tts", version: VERSION }),
+    handler: () => ({ ok: true, plugin: "soksak-plugin-mascot", version: VERSION }),
   });
 
   reg("state", {
@@ -69,7 +69,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
       text: { type: "string", description: "text to speak (may contain [emotion] tags)", required: true },
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
-    examples: ['sok plugin.soksak-plugin-vtube-tts.say \'{"text":"[joy] 반가워요!"}\''],
+    examples: ['sok plugin.soksak-plugin-mascot.say \'{"text":"[joy] 반가워요!"}\''],
     handler: (p) => {
       const text = String(p.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -91,7 +91,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   reg("release", {
     speak: () => "",
     description:
-      "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this — engine lifetime follows speaking rights.",
+      "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, mascot off) call this — engine lifetime follows speaking rights.",
     triggers: { ko: "엔진 반납 자원 해제 사이드카 내리기" },
     handler: () => {
       engine.releaseTts();
@@ -131,7 +131,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
       path: { type: "string", description: "absolute path to .model3.json", required: true },
     },
     returns: "{ ok, path, expressions, motionGroups }",
-    examples: ['sok plugin.soksak-plugin-vtube-tts.model.load \'{"path":"/Users/me/models/hiyori/hiyori.model3.json"}\''],
+    examples: ['sok plugin.soksak-plugin-mascot.model.load \'{"path":"/Users/me/models/hiyori/hiyori.model3.json"}\''],
     handler: async (p) => {
       const info = await engine.loadModel(String(p.path ?? ""));
       mascot.sync();
@@ -193,7 +193,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
       group: { type: "string", description: 'motion group name ("" = default group)', required: false },
       index: { type: "number", description: "motion index within the group (omit = random)", required: false },
     },
-    examples: ['sok plugin.soksak-plugin-vtube-tts.motion.play \'{"group":""}\''],
+    examples: ['sok plugin.soksak-plugin-mascot.motion.play \'{"group":""}\''],
     handler: async (p) => {
       const st = engine.state();
       if (!st.model) return { ok: false, error: "no model loaded" };
@@ -204,7 +204,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
     },
   });
 
-  reg("mascot.toggle", {
+  reg("toggle", {
     speak: () => "", // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "브이튜브 마스코트 화면 오버레이 켜기 끄기" },

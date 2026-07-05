@@ -27693,7 +27693,7 @@ var SettingsStore = class {
       const raw = await this.app.data?.kv.get(KEY);
       if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
     } catch (e2) {
-      console.error("[vtube-tts] settings load \uC2E4\uD328:", e2);
+      console.error("[mascot] settings load \uC2E4\uD328:", e2);
     }
     return this.cur;
   }
@@ -27702,7 +27702,7 @@ var SettingsStore = class {
     try {
       await this.app.data?.kv.set(KEY, this.cur);
     } catch (e2) {
-      console.error("[vtube-tts] settings save \uC2E4\uD328:", e2);
+      console.error("[mascot] settings save \uC2E4\uD328:", e2);
     }
     return this.cur;
   }
@@ -40300,7 +40300,7 @@ async function injectScript(jsText) {
   injecting = new Promise((resolve2, reject) => {
     const url2 = URL.createObjectURL(new Blob([jsText], { type: "text/javascript" }));
     const el = document.createElement("script");
-    el.id = "soksak-vtube-tts-cubism-core";
+    el.id = "soksak-mascot-cubism-core";
     el.src = url2;
     el.onload = () => {
       URL.revokeObjectURL(url2);
@@ -40325,7 +40325,7 @@ async function ensureFromCache(app) {
       return true;
     }
   } catch (e2) {
-    console.error("[vtube-tts] cubism \uCE90\uC2DC \uB85C\uB4DC \uC2E4\uD328:", e2);
+    console.error("[mascot] cubism \uCE90\uC2DC \uB85C\uB4DC \uC2E4\uD328:", e2);
   }
   return false;
 }
@@ -40511,7 +40511,7 @@ var Live2DRenderer = class {
     const core = im?.coreModel;
     const lipIds = im?.motionManager?.lipSyncIds ?? [];
     if (!core?.setParameterValueById || lipIds.length === 0) {
-      console.warn("[vtube-tts] lipSyncIds unavailable \u2014 lip sync disabled");
+      console.warn("[mascot] lipSyncIds unavailable \u2014 lip sync disabled");
       return;
     }
     const self2 = this;
@@ -40571,7 +40571,7 @@ var Live2DRenderer = class {
     try {
       return await this.model.expression(name) === true;
     } catch (e2) {
-      console.error("[vtube-tts] expression \uC801\uC6A9 \uC2E4\uD328:", e2);
+      console.error("[mascot] expression \uC801\uC6A9 \uC2E4\uD328:", e2);
       return false;
     }
   }
@@ -40582,7 +40582,7 @@ var Live2DRenderer = class {
     try {
       return await this.model.motion(group, index, 3) === true;
     } catch (e2) {
-      console.error("[vtube-tts] motion \uC7AC\uC0DD \uC2E4\uD328:", e2);
+      console.error("[mascot] motion \uC7AC\uC0DD \uC2E4\uD328:", e2);
       return false;
     }
   }
@@ -40751,7 +40751,7 @@ var SpeechSynthesisTts = class _SpeechSynthesisTts {
     const voice = this.pickVoice(lang);
     const ok = await this.speakOnce(text, lang, voice);
     if (!ok && voice) {
-      console.warn(`[vtube-tts] voice "${voice.name}" failed \u2014 falling back to locale default`);
+      console.warn(`[mascot] voice "${voice.name}" failed \u2014 falling back to locale default`);
       await this.speakOnce(text, lang, null);
     }
   }
@@ -40846,7 +40846,7 @@ var SpeechSidecarProc = class {
   }
   // 엔진 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 모델을 든 상주
   // 프로세스는 창마다 수백 MB(실측: 5창 상주 = ~2.9GB → 웹뷰 boot OOM) — 자격을 잃은 창
-  // (narrator 상실·vtube 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
+  // (narrator 상실·mascot 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
   // 다음 자격 창의 첫 say 가 lazy 재기동(시간 휴리스틱 없음 — 자격 전이가 수명을 결정).
   releaseWhenDrained = false;
   release() {
@@ -40889,7 +40889,7 @@ var SpeechSidecarProc = class {
       this.subs.push(
         proc.onData(handle, (bytes) => this.feed(bytes)),
         proc.onExit(handle, (code) => {
-          console.warn("[vtube-tts] speech sidecar exited:", code);
+          console.warn("[mascot] speech sidecar exited:", code);
           this.failAll(`sidecar exited (${code})`);
           this.teardown();
         })
@@ -40905,7 +40905,7 @@ var SpeechSidecarProc = class {
       });
       return true;
     } catch (e2) {
-      console.error("[vtube-tts] speech sidecar spawn \uC2E4\uD328:", e2);
+      console.error("[mascot] speech sidecar spawn \uC2E4\uD328:", e2);
       this.teardown();
       return false;
     }
@@ -40995,6 +40995,10 @@ var SidecarTts = class {
   running() {
     return this.proc.running();
   }
+  /** 사이드카 반납(자격 상실) — 발화 중이면 큐 소화 후 내려간다(SpeechSidecarProc.release). */
+  release() {
+    this.proc.release();
+  }
   info() {
     return this.proc.info;
   }
@@ -41074,7 +41078,7 @@ var SidecarTts = class {
         },
         onDone: (ok, message) => {
           done = true;
-          if (!ok && message) console.warn("[vtube-tts] sidecar tts:", message);
+          if (!ok && message) console.warn("[mascot] sidecar tts:", message);
           maybeFinish();
         }
       }).then((id) => {
@@ -41231,12 +41235,12 @@ var VtubeTtsEngine = class {
   async persistModelPath(path2) {
     try {
       await this.app.commands.execute("plugin.settings.set", {
-        id: "soksak-plugin-vtube-tts",
+        id: "soksak-plugin-mascot",
         key: "modelPath",
         value: path2
       });
     } catch (e2) {
-      console.error("[vtube-tts] modelPath \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328:", e2);
+      console.error("[mascot] modelPath \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328:", e2);
     }
   }
   // ── 이벤트 ──
@@ -41383,7 +41387,7 @@ var VtubeTtsEngine = class {
     this.emit({ kind: "state" });
   }
   /** 엔진 자원 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 자격을 잃은
-   *  소비자(narrator 상실·vtube 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
+   *  소비자(narrator 상실·mascot 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
    *  발화 중이면 큐 소화 후 내려가고, 다음 say 가 lazy 재기동한다. */
   releaseTts() {
     this.sidecar.release();
@@ -41399,22 +41403,22 @@ var VtubeTtsEngine = class {
 
 // src/styles.ts
 var MASCOT_CSS = `
-#soksak-vtube-tts-mascot {
+#soksak-mascot-mascot {
   position: fixed; right: 16px; bottom: 12px; width: 280px; height: 380px;
   z-index: 2147483000; pointer-events: none;
 }
-#soksak-vtube-tts-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
-#soksak-vtube-tts-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-#soksak-vtube-tts-mascot .vtm-subtitle {
+#soksak-mascot-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
+#soksak-mascot-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#soksak-mascot-mascot .vtm-subtitle {
   position: absolute; left: 0; right: 0; bottom: 0; min-height: 20px; max-height: 64px; overflow: hidden;
   text-align: center; font: 13px/1.4 system-ui, sans-serif; color: #fff;
   background: rgba(20,16,24,.72); border-radius: 10px; padding: 5px 9px; white-space: pre-wrap;
 }
-#soksak-vtube-tts-mascot .vtm-subtitle:empty { display: none; }
+#soksak-mascot-mascot .vtm-subtitle:empty { display: none; }
 `;
 
 // src/mascot.ts
-var HOST_ID = "soksak-vtube-tts-mascot";
+var HOST_ID = "soksak-mascot-mascot";
 var MascotOverlay = class {
   constructor(engine2) {
     this.engine = engine2;
@@ -41481,7 +41485,7 @@ function registerCommands(ctx, engine2, mascot2) {
   reg("ping", {
     description: "Health check \u2014 plugin load/version probe (E2E).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD50C\uB7EC\uADF8\uC778 \uC0C1\uD0DC \uC810\uAC80 \uD551" },
-    handler: () => ({ ok: true, plugin: "soksak-plugin-vtube-tts", version: VERSION3 })
+    handler: () => ({ ok: true, plugin: "soksak-plugin-mascot", version: VERSION3 })
   });
   reg("state", {
     description: "Read current plugin state: cubism runtime, loaded model, expressions, emotion map, mascot/tts/speaking/busy flags.",
@@ -41529,7 +41533,7 @@ function registerCommands(ctx, engine2, mascot2) {
       text: { type: "string", description: "text to speak (may contain [emotion] tags)", required: true }
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
-    examples: [`sok plugin.soksak-plugin-vtube-tts.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
+    examples: [`sok plugin.soksak-plugin-mascot.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
     handler: (p2) => {
       const text = String(p2.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -41549,7 +41553,7 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("release", {
     speak: () => "",
-    description: "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this \u2014 engine lifetime follows speaking rights.",
+    description: "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, mascot off) call this \u2014 engine lifetime follows speaking rights.",
     triggers: { ko: "\uC5D4\uC9C4 \uBC18\uB0A9 \uC790\uC6D0 \uD574\uC81C \uC0AC\uC774\uB4DC\uCE74 \uB0B4\uB9AC\uAE30" },
     handler: () => {
       engine2.releaseTts();
@@ -41584,7 +41588,7 @@ function registerCommands(ctx, engine2, mascot2) {
       path: { type: "string", description: "absolute path to .model3.json", required: true }
     },
     returns: "{ ok, path, expressions, motionGroups }",
-    examples: [`sok plugin.soksak-plugin-vtube-tts.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
+    examples: [`sok plugin.soksak-plugin-mascot.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
     handler: async (p2) => {
       const info = await engine2.loadModel(String(p2.path ?? ""));
       mascot2.sync();
@@ -41635,7 +41639,7 @@ function registerCommands(ctx, engine2, mascot2) {
       group: { type: "string", description: 'motion group name ("" = default group)', required: false },
       index: { type: "number", description: "motion index within the group (omit = random)", required: false }
     },
-    examples: [`sok plugin.soksak-plugin-vtube-tts.motion.play '{"group":""}'`],
+    examples: [`sok plugin.soksak-plugin-mascot.motion.play '{"group":""}'`],
     handler: async (p2) => {
       const st = engine2.state();
       if (!st.model) return { ok: false, error: "no model loaded" };
@@ -41645,7 +41649,7 @@ function registerCommands(ctx, engine2, mascot2) {
       return { ok: played, group, ...index !== void 0 ? { index } : {} };
     }
   });
-  reg("mascot.toggle", {
+  reg("toggle", {
     speak: () => "",
     // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
@@ -41695,7 +41699,7 @@ var main_default = {
       }
     });
     registerCommands(ctx, engine, mascot);
-    void engine.init().then(() => mascot?.sync()).catch((e2) => console.error("[vtube-tts] init \uC2E4\uD328:", e2));
+    void engine.init().then(() => mascot?.sync()).catch((e2) => console.error("[mascot] init \uC2E4\uD328:", e2));
     ctx.subscriptions.push(
       engine.on((e2) => {
         if (e2.kind === "state") mascot?.sync();

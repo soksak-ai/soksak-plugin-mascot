@@ -1,4 +1,4 @@
-// soksak-plugin-vtuber 번들 빌드 — esbuild 단일 ESM main.js(loader 가 blob-URL 로 import).
+// soksak-plugin-mascot 번들 빌드 — esbuild 단일 ESM main.js(loader 가 blob-URL 로 import).
 // pixi.js + pixi-live2d-display 를 통째로 번들한다(플러그인은 상대 import 불가 — 전부 인라인).
 // Cubism Core 는 번들하지 않는다 — 프로프라이어터리라 repo/번들 미포함, 런타임 동의 후 다운로드.
 import { build, context } from "esbuild";
@@ -25,8 +25,8 @@ const opts = {
 if (process.argv.includes("--watch")) {
   const ctx = await context(opts);
   await ctx.watch();
-  console.log("[vtuber] watching src → main.js …");
+  console.log("[mascot] watching src → main.js …");
 } else {
   await build(opts);
-  console.log("[vtuber] built main.js");
+  console.log("[mascot] built main.js");
 }

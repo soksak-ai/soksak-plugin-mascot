@@ -72,8 +72,9 @@ export interface ViewCtx {
 
 export interface CommandSpec {
   description: string;
-  /** 낭독 스펙(MESSAGE-PROTOCOL) — false=이 명령의 실행 기록은 절대 낭독 금지(say 류). 생략=true. */
-  tts?: boolean;
+  /** 낭독 문장(귀, MESSAGE-PROTOCOL §3) — speak 있으면 speak(outcome)가 문장, 없으면 message 폴백,
+   *  "" = 침묵(say 류의 되먹임 차단점). */
+  speak?: (out: { ok: boolean; code: string; message: string; data?: Record<string, unknown> }) => string;
   triggers?: { ko?: string };
   params?: Record<
     string,

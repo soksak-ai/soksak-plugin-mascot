@@ -204,7 +204,7 @@ export class Live2DRenderer {
     const core = im?.coreModel;
     const lipIds: unknown[] = im?.motionManager?.lipSyncIds ?? [];
     if (!core?.setParameterValueById || lipIds.length === 0) {
-      console.warn("[vtube-tts] lipSyncIds unavailable — lip sync disabled");
+      console.warn("[mascot] lipSyncIds unavailable — lip sync disabled");
       return;
     }
     const self = this;
@@ -273,7 +273,7 @@ export class Live2DRenderer {
     try {
       return (await this.model.expression(name)) === true;
     } catch (e) {
-      console.error("[vtube-tts] expression 적용 실패:", e);
+      console.error("[mascot] expression 적용 실패:", e);
       return false;
     }
   }
@@ -285,7 +285,7 @@ export class Live2DRenderer {
     try {
       return (await this.model.motion(group, index, 3)) === true;
     } catch (e) {
-      console.error("[vtube-tts] motion 재생 실패:", e);
+      console.error("[mascot] motion 재생 실패:", e);
       return false;
     }
   }

@@ -59,7 +59,7 @@ class SpeechSidecarProc {
 
   // 엔진 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 모델을 든 상주
   // 프로세스는 창마다 수백 MB(실측: 5창 상주 = ~2.9GB → 웹뷰 boot OOM) — 자격을 잃은 창
-  // (narrator 상실·vtube 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
+  // (narrator 상실·mascot 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
   // 다음 자격 창의 첫 say 가 lazy 재기동(시간 휴리스틱 없음 — 자격 전이가 수명을 결정).
   private releaseWhenDrained = false;
   release(): void {
@@ -103,7 +103,7 @@ class SpeechSidecarProc {
       this.subs.push(
         proc.onData(handle, (bytes: Uint8Array) => this.feed(bytes)),
         proc.onExit(handle, (code: number) => {
-          console.warn("[vtube-tts] speech sidecar exited:", code);
+          console.warn("[mascot] speech sidecar exited:", code);
           this.failAll(`sidecar exited (${code})`);
           this.teardown(); // 다음 speak 에서 재기동
         }),
@@ -117,7 +117,7 @@ class SpeechSidecarProc {
       void proc.write(handle, JSON.stringify({ id, op: "info" }) + "\n").catch(() => {});
       return true;
     } catch (e) {
-      console.error("[vtube-tts] speech sidecar spawn 실패:", e);
+      console.error("[mascot] speech sidecar spawn 실패:", e);
       this.teardown();
       return false;
     }
@@ -224,6 +224,11 @@ export class SidecarTts implements TtsEngine {
     return this.proc.running();
   }
 
+  /** 사이드카 반납(자격 상실) — 발화 중이면 큐 소화 후 내려간다(SpeechSidecarProc.release). */
+  release(): void {
+    this.proc.release();
+  }
+
   info(): SidecarInfo | null {
     return this.proc.info;
   }
@@ -309,7 +314,7 @@ export class SidecarTts implements TtsEngine {
           },
           onDone: (ok, message) => {
             done = true;
-            if (!ok && message) console.warn("[vtube-tts] sidecar tts:", message);
+            if (!ok && message) console.warn("[mascot] sidecar tts:", message);
             maybeFinish();
           },
         })

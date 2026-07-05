@@ -1,5 +1,5 @@
-// soksak-plugin-vtube-tts 엔트리 — 뷰 없는 표현 엔진(loader 가 blob-URL 로 import 하는 단일 ESM).
-// 전 기능이 커맨드(sok plugin.soksak-plugin-vtube-tts.* / MCP / 소켓)와 마스코트 오버레이로만
+// soksak-plugin-mascot 엔트리 — 뷰 없는 표현 엔진(loader 가 blob-URL 로 import 하는 단일 ESM).
+// 전 기능이 커맨드(sok plugin.soksak-plugin-mascot.* / MCP / 소켓)와 마스코트 오버레이로만
 // 노출된다 — 다른 플러그인(활동로그·대화 UI)이 say/expression/mascot 으로 구동하는 부품.
 import type { PluginCtx } from "@/types";
 import { VtubeTtsEngine } from "@/engine";
@@ -30,7 +30,7 @@ export default {
     void engine
       .init()
       .then(() => mascot?.sync())
-      .catch((e) => console.error("[vtube-tts] init 실패:", e));
+      .catch((e) => console.error("[mascot] init 실패:", e));
 
     // 마스코트는 뷰와 독립 — state 변화 때마다 오버레이 존재를 동기화.
     ctx.subscriptions.push(

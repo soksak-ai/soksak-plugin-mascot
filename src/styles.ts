@@ -45,16 +45,16 @@ export const GLOBAL_CSS = `
 
 // 마스코트 오버레이 전용(라이트 DOM — document.body 직결이라 격리된 최소 셀렉터만).
 export const MASCOT_CSS = `
-#soksak-vtube-tts-mascot {
+#soksak-mascot-mascot {
   position: fixed; right: 16px; bottom: 12px; width: 280px; height: 380px;
   z-index: 2147483000; pointer-events: none;
 }
-#soksak-vtube-tts-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
-#soksak-vtube-tts-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-#soksak-vtube-tts-mascot .vtm-subtitle {
+#soksak-mascot-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
+#soksak-mascot-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#soksak-mascot-mascot .vtm-subtitle {
   position: absolute; left: 0; right: 0; bottom: 0; min-height: 20px; max-height: 64px; overflow: hidden;
   text-align: center; font: 13px/1.4 system-ui, sans-serif; color: #fff;
   background: rgba(20,16,24,.72); border-radius: 10px; padding: 5px 9px; white-space: pre-wrap;
 }
-#soksak-vtube-tts-mascot .vtm-subtitle:empty { display: none; }
+#soksak-mascot-mascot .vtm-subtitle:empty { display: none; }
 `;

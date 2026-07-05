@@ -1,4 +1,4 @@
-# soksak-plugin-vtube-tts
+# soksak-plugin-mascot
 
 Character presentation engine for soksak — a Live2D mascot with a local neural voice. **No views of its own**: everything is a command, so other plugins (an activity-log narrator, chat UIs) drive the character.
 
@@ -17,7 +17,7 @@ Character presentation engine for soksak — a Live2D mascot with a local neural
 
 ## Commands
 
-Full registry address: `plugin.soksak-plugin-vtube-tts.<name>`.
+Full registry address: `plugin.soksak-plugin-mascot.<name>`.
 
 | Command | Description |
 | --- | --- |

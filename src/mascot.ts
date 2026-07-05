@@ -4,7 +4,7 @@
 import type { VtubeTtsEngine } from "@/engine";
 import { MASCOT_CSS } from "@/styles";
 
-const HOST_ID = "soksak-vtube-tts-mascot";
+const HOST_ID = "soksak-mascot-mascot";
 
 export class MascotOverlay {
   private host: HTMLDivElement | null = null;

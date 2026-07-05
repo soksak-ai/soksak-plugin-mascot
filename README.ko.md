@@ -1,4 +1,4 @@
-# soksak-plugin-vtube-tts
+# soksak-plugin-mascot
 
 soksak 캐릭터 표현 엔진 — 로컬 신경 음성을 가진 Live2D 마스코트. **자체 뷰 없음**: 전 기능이 커맨드라서 다른 플러그인(활동로그 낭독기, 대화 UI)이 캐릭터를 구동한다.
 
@@ -17,7 +17,7 @@ English: [README.md](README.md)
 
 ## 커맨드
 
-전체 주소: `plugin.soksak-plugin-vtube-tts.<이름>`.
+전체 주소: `plugin.soksak-plugin-mascot.<이름>`.
 
 | 커맨드 | 설명 |
 | --- | --- |

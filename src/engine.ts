@@ -1,4 +1,4 @@
-// vtube-tts 엔진 — 설정·렌더러·TTS 큐·acp 를 한 곳에서 소유. 뷰(패널/마스코트)와 커맨드는 전부
+// mascot 엔진 — 설정·렌더러·TTS 큐·acp 를 한 곳에서 소유. 뷰(패널/마스코트)와 커맨드는 전부
 // 이 엔진의 같은 오퍼레이션을 호출한다(표면≡커맨드 등가 — CLI 자가검증 원칙).
 // 뷰 갱신은 얇은 로컬 이벤트로 브로드캐스트(교차창 상태 아님 — 창-로컬 UI 반영용).
 import type { HostApp, Utterance } from "@/types";
@@ -151,12 +151,12 @@ export class VtubeTtsEngine {
   private async persistModelPath(path: string): Promise<void> {
     try {
       await this.app.commands.execute("plugin.settings.set", {
-        id: "soksak-plugin-vtube-tts",
+        id: "soksak-plugin-mascot",
         key: "modelPath",
         value: path,
       });
     } catch (e) {
-      console.error("[vtube-tts] modelPath 설정 저장 실패:", e);
+      console.error("[mascot] modelPath 설정 저장 실패:", e);
     }
   }
 
@@ -320,7 +320,7 @@ export class VtubeTtsEngine {
   }
 
   /** 엔진 자원 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 자격을 잃은
-   *  소비자(narrator 상실·vtube 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
+   *  소비자(narrator 상실·mascot 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
    *  발화 중이면 큐 소화 후 내려가고, 다음 say 가 lazy 재기동한다. */
   releaseTts(): void {
     this.sidecar.release();
