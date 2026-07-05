@@ -41497,6 +41497,9 @@ function registerCommands(ctx, engine2, mascot2) {
   reg("say", {
     // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. 스펙 차원의 유일한 차단점.
     tts: false,
+    // 계측도 제외 — 낭독 1회당 실행 기록 1개가 쌓여 피드를 관찰 부산물로 채운다(실측:
+    // 한 턴에 say 기록 5개). activity.recent 와 같은 "관찰이 스트림을 늘리는" 부류(§4).
+    trace: false,
     description: "Speak text locally without the LLM \u2014 runs the sentence/emotion/speech pipeline. Emotion tags like [joy] are honored.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB300\uC0AC \uBC1C\uD654 \uB9D0\uD558\uAE30 \uC790\uB9C9" },
     params: {
@@ -41514,6 +41517,8 @@ function registerCommands(ctx, engine2, mascot2) {
   reg("stop", {
     tts: false,
     // 낭독 제어 계열 — say 와 동일하게 침묵
+    trace: false,
+    // say 와 같은 관찰 부산물 가족
     description: "Stop current speech.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
     handler: async () => {
