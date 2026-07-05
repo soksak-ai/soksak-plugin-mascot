@@ -188,6 +188,21 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
     },
   });
 
+  reg("activity.list", {
+    description:
+      "List recent activity entries the narrator holds. Each entry carries tts:false when it must never be spoken (AI-utterance events are log-only).",
+    triggers: { ko: "브이튜버 활동 로그 목록 조회" },
+    params: {
+      limit: { type: "number", description: "max entries (default 20)", required: false },
+    },
+    returns: "{ ok, entries: [{ts, kind, text, tts}] }",
+    handler: (p) => {
+      const limit = typeof p.limit === "number" ? Math.max(1, p.limit) : 20;
+      const all = engine.narrator.list();
+      return { ok: true, entries: all.slice(-limit) };
+    },
+  });
+
   reg("motion.play", {
     description:
       'Play a model motion. group = a Motions group from the model (often "Idle" and "" for tap motions); omit index for a random one in the group.',

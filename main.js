@@ -41232,9 +41232,7 @@ var ActivityNarrator = class {
         if (!cmd) return;
         this.push({
           kind: "terminal.start",
-          text: ko ? `\uC2E4\uD589: ${cmd}` : `run: ${cmd}`,
-          speak: null
-          // 시작은 낭독하지 않는다(끝났을 때만 — 소음 절반)
+          text: ko ? `\uC2E4\uD589: ${cmd}` : `run: ${cmd}`
         });
       }),
       on("command.finished", (p3) => {
@@ -41252,16 +41250,16 @@ var ActivityNarrator = class {
         this.push({
           kind: "turn.ended",
           text: ko ? `${agent ?? "AI"} \uD134 \uC885\uB8CC` : `${agent ?? "AI"} turn ended`,
-          speak: ko ? `${agent ?? "\uC5D0\uC774\uC804\uD2B8"} \uD134\uC774 \uB05D\uB0AC\uC5B4\uC694.` : `The ${agent ?? "agent"} turn finished.`
+          tts: false
         });
       })
     );
   }
   push(e2) {
-    const entry = { ts: Date.now(), ...e2 };
+    const entry = { ...e2, ts: Date.now(), tts: e2.tts !== false };
     this.entries.push(entry);
     if (this.entries.length > MAX_ENTRIES) this.entries.splice(0, this.entries.length - MAX_ENTRIES);
-    if (entry.speak && this.opts.narrate() && !this.opts.speaking()) {
+    if (entry.tts && entry.speak && this.opts.narrate() && !this.opts.speaking()) {
       this.opts.speak(entry.speak);
     }
     for (const fn of this.listeners) fn();
@@ -42429,6 +42427,19 @@ function registerCommands(ctx, engine2, mascot2) {
       if (!map4 || typeof map4 !== "object") return { ok: false, error: "map (json object) required" };
       await engine2.setEmotionMap(map4);
       return { ok: true, emotionMap: map4 };
+    }
+  });
+  reg("activity.list", {
+    description: "List recent activity entries the narrator holds. Each entry carries tts:false when it must never be spoken (AI-utterance events are log-only).",
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD65C\uB3D9 \uB85C\uADF8 \uBAA9\uB85D \uC870\uD68C" },
+    params: {
+      limit: { type: "number", description: "max entries (default 20)", required: false }
+    },
+    returns: "{ ok, entries: [{ts, kind, text, tts}] }",
+    handler: (p3) => {
+      const limit = typeof p3.limit === "number" ? Math.max(1, p3.limit) : 20;
+      const all = engine2.narrator.list();
+      return { ok: true, entries: all.slice(-limit) };
     }
   });
   reg("motion.play", {

@@ -7,7 +7,9 @@ export interface ActivityEntry {
   ts: number; // epoch ms
   kind: "terminal.start" | "terminal.done" | "turn.ended";
   text: string; // 표시용(로그 리스트)
-  speak: string | null; // 낭독용(null = 표시만)
+  /** 낭독 허용 — 생략=true(기본). AI 발화 계열만 명시적 false(자기 발화 되먹임 금지선). */
+  tts: boolean;
+  speak?: string; // 낭독 문장 — 없으면 읽을 것이 없다(표시 전용)
 }
 
 const MAX_ENTRIES = 80;
@@ -40,10 +42,10 @@ export class ActivityNarrator {
       on("command.started", (p: any) => {
         const cmd = shortCmd(p?.commandLine);
         if (!cmd) return;
+        // speak 없음 = 표시 전용(시작까지 읽으면 소음 2배 — 끝났을 때만 낭독)
         this.push({
           kind: "terminal.start",
           text: ko ? `실행: ${cmd}` : `run: ${cmd}`,
-          speak: null, // 시작은 낭독하지 않는다(끝났을 때만 — 소음 절반)
         });
       }),
       on("command.finished", (p: any) => {
@@ -58,21 +60,23 @@ export class ActivityNarrator {
       }),
       on("turn.ended", (p: any) => {
         const agent = typeof p?.agentKind === "string" && p.agentKind ? p.agentKind : null;
+        // AI 발화 계열 — 로그엔 남기되 절대 낭독하지 않는다(tts:false).
+        // 캐릭터 자신/다른 에이전트의 발화를 캐릭터가 되읽는 되먹임 방지.
         this.push({
           kind: "turn.ended",
           text: ko ? `${agent ?? "AI"} 턴 종료` : `${agent ?? "AI"} turn ended`,
-          speak: ko ? `${agent ?? "에이전트"} 턴이 끝났어요.` : `The ${agent ?? "agent"} turn finished.`,
+          tts: false,
         });
       }),
     );
   }
 
-  private push(e: Omit<ActivityEntry, "ts">): void {
-    const entry: ActivityEntry = { ts: Date.now(), ...e };
+  private push(e: Omit<ActivityEntry, "ts" | "tts"> & { tts?: boolean }): void {
+    const entry: ActivityEntry = { ...e, ts: Date.now(), tts: e.tts !== false };
     this.entries.push(entry);
     if (this.entries.length > MAX_ENTRIES) this.entries.splice(0, this.entries.length - MAX_ENTRIES);
-    // 낭독 — 켜져 있고, 지금 말하는 중이 아닐 때만(밀린 이벤트를 몰아 읽지 않는다)
-    if (entry.speak && this.opts.narrate() && !this.opts.speaking()) {
+    // 낭독 — tts:true 이고, 켜져 있고, 지금 말하는 중이 아닐 때만(밀린 이벤트를 몰아 읽지 않는다)
+    if (entry.tts && entry.speak && this.opts.narrate() && !this.opts.speaking()) {
       this.opts.speak(entry.speak);
     }
     for (const fn of this.listeners) fn();

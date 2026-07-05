@@ -366,6 +366,13 @@
         }
       },
       {
+        "name": "activity.list",
+        "title": {
+          "en": "Lists recent activity entries",
+          "ko": "활동 로그를 조회합니다"
+        }
+      },
+      {
         "name": "motion.play",
         "title": {
           "en": "Plays a model motion",
