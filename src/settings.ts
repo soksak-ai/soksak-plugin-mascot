@@ -3,7 +3,7 @@
 import type { HostApp } from "@/types";
 
 // 모델 경로는 여기 없다 — 코어 선언형 설정(manifest configuration "modelPath")이 단일 진실.
-export interface VtubeTtsSettings {
+export interface MascotSettings {
   ttsEnabled: boolean;
   mascotOn: boolean;
   cubismAccepted: boolean;
@@ -11,7 +11,7 @@ export interface VtubeTtsSettings {
   emotionMaps: Record<string, Record<string, string>>;
 }
 
-const DEFAULTS: VtubeTtsSettings = {
+const DEFAULTS: MascotSettings = {
   ttsEnabled: true,
   mascotOn: false,
   cubismAccepted: false,
@@ -21,17 +21,17 @@ const DEFAULTS: VtubeTtsSettings = {
 const KEY = "settings";
 
 export class SettingsStore {
-  private cur: VtubeTtsSettings = { ...DEFAULTS };
+  private cur: MascotSettings = { ...DEFAULTS };
 
   constructor(private app: HostApp) {}
 
-  get(): VtubeTtsSettings {
+  get(): MascotSettings {
     return this.cur;
   }
 
-  async load(): Promise<VtubeTtsSettings> {
+  async load(): Promise<MascotSettings> {
     try {
-      const raw = (await this.app.data?.kv.get(KEY)) as Partial<VtubeTtsSettings> | null;
+      const raw = (await this.app.data?.kv.get(KEY)) as Partial<MascotSettings> | null;
       if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
     } catch (e) {
       console.error("[mascot] settings load 실패:", e);
@@ -39,7 +39,7 @@ export class SettingsStore {
     return this.cur;
   }
 
-  async patch(p: Partial<VtubeTtsSettings>): Promise<VtubeTtsSettings> {
+  async patch(p: Partial<MascotSettings>): Promise<MascotSettings> {
     this.cur = { ...this.cur, ...p };
     try {
       await this.app.data?.kv.set(KEY, this.cur);

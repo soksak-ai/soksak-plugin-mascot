@@ -1,7 +1,7 @@
 // 화면 마스코트 오버레이 — document.body 직결 fixed 레이어(ui:overlay:screen).
 // 전면 pointer-events:none(클릭 통과 — 앱 조작을 절대 막지 않는다, overlay-sakura 선례).
 // 켜지면 렌더러 캔버스를 이리로 가져오고, 끄면 패널이 state 이벤트로 도로 가져간다.
-import type { VtubeTtsEngine } from "@/engine";
+import type { MascotEngine } from "@/engine";
 import { MASCOT_CSS } from "@/styles";
 
 const HOST_ID = "soksak-mascot-mascot";
@@ -12,7 +12,7 @@ export class MascotOverlay {
   private subtitle: HTMLDivElement | null = null;
   private sub: { dispose(): void } | null = null;
 
-  constructor(private engine: VtubeTtsEngine) {}
+  constructor(private engine: MascotEngine) {}
 
   /** 엔진 상태를 따라 오버레이를 동기화 — 켜짐+모델 있음일 때만 존재. */
   sync(): void {
