@@ -2,8 +2,8 @@
   "spec": "soksak-spec-plugin@0.0.1",
   "id": "soksak-plugin-mascot",
   "name": {
-    "en": "VTube TTS",
-    "ko": "브이튜브 TTS"
+    "en": "Mascot",
+    "ko": "마스코트"
   },
   "version": "0.0.1",
   "repo": "https://github.com/soksak-ai/soksak-plugin-mascot.git",
@@ -45,7 +45,7 @@
         "ko": "캐릭터 폴더"
       },
       "description": {
-        "en": "Directory scanned for Live2D characters (recursively finds *.model3.json). Empty = the plugin's models/ folder. Pick a character in the VTuber panel toolbar.",
+        "en": "Directory scanned for Live2D characters (recursively finds *.model3.json). Empty = the plugin's models/ folder. Pick a character with the model.load command.",
         "ko": "Live2D 캐릭터 스캔 디렉토리(*.model3.json 재귀 탐색). 비우면 플러그인의 models/ 폴더. 선택은 브이튜버 패널 툴바에서."
       }
     },
