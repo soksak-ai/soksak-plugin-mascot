@@ -41489,6 +41489,7 @@ function registerCommands(ctx, engine2, mascot2) {
   reg("ping", {
     description: "Health check \u2014 plugin load/version probe (E2E).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD50C\uB7EC\uADF8\uC778 \uC0C1\uD0DC \uC810\uAC80 \uD551" },
+    message: (d2) => `\uB9C8\uC2A4\uCF54\uD2B8 \uD50C\uB7EC\uADF8\uC778 ${String(d2.version)} \uC815\uC0C1\uC785\uB2C8\uB2E4.`,
     handler: () => ({ ok: true, plugin: "soksak-plugin-mascot", version: VERSION3 })
   });
   reg("state", {
@@ -41512,6 +41513,7 @@ function registerCommands(ctx, engine2, mascot2) {
       }
     },
     returns: "state object",
+    message: (d2) => d2.model ? `\uBAA8\uB378 \uB85C\uB4DC\uB428, \uB9C8\uC2A4\uCF54\uD2B8 ${d2.mascot ? "\uCF1C\uC9D0" : "\uAEBC\uC9D0"}.` : "\uB85C\uB4DC\uB41C \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.",
     handler: async (p2) => {
       const st = engine2.state();
       const probe = p2.probe === true ? await engine2.renderer.probePixels() : void 0;
@@ -41538,9 +41540,10 @@ function registerCommands(ctx, engine2, mascot2) {
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
     examples: [`sok plugin.soksak-plugin-mascot.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
+    message: (d2) => `${(d2.utterances ?? []).length}\uAC1C \uBB38\uC7A5\uC744 \uBC1C\uD654\uD588\uC2B5\uB2C8\uB2E4.`,
     handler: (p2) => {
       const text = String(p2.text ?? "").trim();
-      if (!text) return { ok: false, error: "text required" };
+      if (!text) return { ok: false, code: "INVALID_INPUT", message: "text required" };
       const utterances = engine2.speakText(text);
       return { ok: true, utterances };
     }
@@ -41550,6 +41553,7 @@ function registerCommands(ctx, engine2, mascot2) {
     // 낭독 제어 계열 — say 와 동일하게 침묵
     description: "Stop current speech.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
+    message: () => "\uBC1C\uD654\uB97C \uC911\uB2E8\uD588\uC2B5\uB2C8\uB2E4.",
     handler: async () => {
       await engine2.stop();
       return { ok: true };
@@ -41559,6 +41563,7 @@ function registerCommands(ctx, engine2, mascot2) {
     speak: () => "",
     description: "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, mascot off) call this \u2014 engine lifetime follows speaking rights.",
     triggers: { ko: "\uC5D4\uC9C4 \uBC18\uB0A9 \uC790\uC6D0 \uD574\uC81C \uC0AC\uC774\uB4DC\uCE74 \uB0B4\uB9AC\uAE30" },
+    message: () => "\uC5D4\uC9C4 \uC790\uC6D0\uC744 \uBC18\uB0A9\uD588\uC2B5\uB2C8\uB2E4.",
     handler: () => {
       engine2.releaseTts();
       return { ok: true };
@@ -41574,6 +41579,7 @@ function registerCommands(ctx, engine2, mascot2) {
         required: true
       }
     },
+    message: () => "\uD050\uBE44\uC998 \uCF54\uC5B4\uB97C \uC124\uCE58\uD588\uC2B5\uB2C8\uB2E4.",
     handler: async (p2) => {
       await engine2.installCubism(p2.accept === true);
       return { ok: true, cubism: true };
@@ -41583,6 +41589,7 @@ function registerCommands(ctx, engine2, mascot2) {
     description: "List Live2D characters found under the models directory (modelsDir setting; default = <plugin>/models).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uCE90\uB9AD\uD130 \uBAA9\uB85D \uBAA8\uB378 \uC2A4\uCE94" },
     returns: "{ ok, models: [{name, path}] }",
+    message: (d2) => `\uCE90\uB9AD\uD130 ${(d2.models ?? []).length}\uAC1C\uB97C \uCC3E\uC558\uC2B5\uB2C8\uB2E4.`,
     handler: async () => ({ ok: true, models: await engine2.listModels() })
   });
   reg("model.load", {
@@ -41593,6 +41600,7 @@ function registerCommands(ctx, engine2, mascot2) {
     },
     returns: "{ ok, path, expressions, motionGroups }",
     examples: [`sok plugin.soksak-plugin-mascot.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
+    message: (d2) => `\uBAA8\uB378\uC744 \uBD88\uB7EC\uC654\uC2B5\uB2C8\uB2E4 (\uD45C\uC815 ${(d2.expressions ?? []).length}\uAC1C).`,
     handler: async (p2) => {
       const info = await engine2.loadModel(String(p2.path ?? ""));
       mascot2.sync();
@@ -41602,9 +41610,10 @@ function registerCommands(ctx, engine2, mascot2) {
   reg("expression.list", {
     description: "List expressions defined by the loaded model, plus the active emotion\u2192expression map.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD45C\uC815 \uBAA9\uB85D \uC870\uD68C" },
+    message: (d2) => `\uD45C\uC815 ${(d2.expressions ?? []).length}\uAC1C.`,
     handler: () => {
       const st = engine2.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       return { ok: true, expressions: st.expressions, emotionMap: st.emotionMap };
     }
   });
@@ -41614,10 +41623,11 @@ function registerCommands(ctx, engine2, mascot2) {
     params: {
       name: { type: "string", description: "expression name or emotion (e.g. joy)", required: true }
     },
+    message: (d2) => `\uD45C\uC815\uC744 ${String(d2.applied)}(\uC73C)\uB85C \uBC14\uAFE8\uC2B5\uB2C8\uB2E4.`,
     handler: async (p2) => {
       const name = String(p2.name ?? "");
       const st = engine2.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       const target = DEFAULT_EMOTIONS.includes(name) ? name === "neutral" ? "neutral" : st.emotionMap[name] ?? "neutral" : name;
       const applied = await engine2.renderer.setExpression(target);
       return { ok: applied, applied: target };
@@ -41629,9 +41639,10 @@ function registerCommands(ctx, engine2, mascot2) {
     params: {
       map: { type: "json", description: 'e.g. {"joy":"F01","anger":"F03"}', required: true }
     },
+    message: (d2) => `\uAC10\uC815 \uB9E4\uD551 ${Object.keys(d2.emotionMap ?? {}).length}\uAC74\uC744 \uC124\uC815\uD588\uC2B5\uB2C8\uB2E4.`,
     handler: async (p2) => {
       const map4 = p2.map;
-      if (!map4 || typeof map4 !== "object") return { ok: false, error: "map (json object) required" };
+      if (!map4 || typeof map4 !== "object") return { ok: false, code: "INVALID_INPUT", message: "map (json object) required" };
       await engine2.setEmotionMap(map4);
       return { ok: true, emotionMap: map4 };
     }
@@ -41644,9 +41655,10 @@ function registerCommands(ctx, engine2, mascot2) {
       index: { type: "number", description: "motion index within the group (omit = random)", required: false }
     },
     examples: [`sok plugin.soksak-plugin-mascot.motion.play '{"group":""}'`],
+    message: (d2) => `\uBAA8\uC158\uC744 \uC7AC\uC0DD\uD588\uC2B5\uB2C8\uB2E4 (\uADF8\uB8F9 "${String(d2.group)}").`,
     handler: async (p2) => {
       const st = engine2.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       const group = typeof p2.group === "string" ? p2.group : "";
       const index = typeof p2.index === "number" ? p2.index : void 0;
       const played = await engine2.renderer.playMotion(group, index);
@@ -41661,6 +41673,7 @@ function registerCommands(ctx, engine2, mascot2) {
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false }
     },
+    message: (d2) => `\uB9C8\uC2A4\uCF54\uD2B8\uB97C ${d2.mascot ? "\uCF30\uC2B5\uB2C8\uB2E4" : "\uAED0\uC2B5\uB2C8\uB2E4"}.`,
     handler: async (p2) => {
       const cur = engine2.state().mascot;
       const next = typeof p2.on === "boolean" ? p2.on : !cur;
@@ -41677,6 +41690,7 @@ function registerCommands(ctx, engine2, mascot2) {
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false }
     },
+    message: (d2) => `\uC74C\uC131 \uCD9C\uB825\uC744 ${d2.tts ? "\uCF30\uC2B5\uB2C8\uB2E4" : "\uAED0\uC2B5\uB2C8\uB2E4"}.`,
     handler: async (p2) => {
       const cur = engine2.state().tts;
       const next = typeof p2.on === "boolean" ? p2.on : !cur;

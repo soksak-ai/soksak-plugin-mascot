@@ -17,6 +17,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
   reg("ping", {
     description: "Health check — plugin load/version probe (E2E).",
     triggers: { ko: "브이튜브 플러그인 상태 점검 핑" },
+    message: (d) => `마스코트 플러그인 ${String(d.version)} 정상입니다.`,
     handler: () => ({ ok: true, plugin: "soksak-plugin-mascot", version: VERSION }),
   });
 
@@ -42,6 +43,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       },
     },
     returns: "state object",
+    message: (d) => (d.model ? `모델 로드됨, 마스코트 ${d.mascot ? "켜짐" : "꺼짐"}.` : "로드된 모델이 없습니다."),
     handler: async (p) => {
       const st = engine.state();
       const probe = p.probe === true ? await engine.renderer.probePixels() : undefined;
@@ -70,9 +72,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
     examples: ['sok plugin.soksak-plugin-mascot.say \'{"text":"[joy] 반가워요!"}\''],
+    message: (d) => `${((d.utterances as unknown[]) ?? []).length}개 문장을 발화했습니다.`,
     handler: (p) => {
       const text = String(p.text ?? "").trim();
-      if (!text) return { ok: false, error: "text required" };
+      if (!text) return { ok: false, code: "INVALID_INPUT", message: "text required" };
       const utterances = engine.speakText(text);
       return { ok: true, utterances };
     },
@@ -82,6 +85,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     speak: () => "", // 낭독 제어 계열 — say 와 동일하게 침묵
     description: "Stop current speech.",
     triggers: { ko: "브이튜브 발화 중단 정지" },
+    message: () => "발화를 중단했습니다.",
     handler: async () => {
       await engine.stop();
       return { ok: true };
@@ -93,6 +97,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     description:
       "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, mascot off) call this — engine lifetime follows speaking rights.",
     triggers: { ko: "엔진 반납 자원 해제 사이드카 내리기" },
+    message: () => "엔진 자원을 반납했습니다.",
     handler: () => {
       engine.releaseTts();
       return { ok: true };
@@ -110,6 +115,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
         required: true,
       },
     },
+    message: () => "큐비즘 코어를 설치했습니다.",
     handler: async (p) => {
       await engine.installCubism(p.accept === true);
       return { ok: true, cubism: true };
@@ -121,6 +127,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       "List Live2D characters found under the models directory (modelsDir setting; default = <plugin>/models).",
     triggers: { ko: "브이튜브 캐릭터 목록 모델 스캔" },
     returns: "{ ok, models: [{name, path}] }",
+    message: (d) => `캐릭터 ${((d.models as unknown[]) ?? []).length}개를 찾았습니다.`,
     handler: async () => ({ ok: true, models: await engine.listModels() }),
   });
 
@@ -132,6 +139,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     },
     returns: "{ ok, path, expressions, motionGroups }",
     examples: ['sok plugin.soksak-plugin-mascot.model.load \'{"path":"/Users/me/models/hiyori/hiyori.model3.json"}\''],
+    message: (d) => `모델을 불러왔습니다 (표정 ${((d.expressions as unknown[]) ?? []).length}개).`,
     handler: async (p) => {
       const info = await engine.loadModel(String(p.path ?? ""));
       mascot.sync();
@@ -142,9 +150,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
   reg("expression.list", {
     description: "List expressions defined by the loaded model, plus the active emotion→expression map.",
     triggers: { ko: "브이튜브 표정 목록 조회" },
+    message: (d) => `표정 ${((d.expressions as unknown[]) ?? []).length}개.`,
     handler: () => {
       const st = engine.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       return { ok: true, expressions: st.expressions, emotionMap: st.emotionMap };
     },
   });
@@ -156,10 +165,11 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     params: {
       name: { type: "string", description: "expression name or emotion (e.g. joy)", required: true },
     },
+    message: (d) => `표정을 ${String(d.applied)}(으)로 바꿨습니다.`,
     handler: async (p) => {
       const name = String(p.name ?? "");
       const st = engine.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       const target = (DEFAULT_EMOTIONS as readonly string[]).includes(name)
         ? name === "neutral"
           ? "neutral"
@@ -177,9 +187,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     params: {
       map: { type: "json", description: 'e.g. {"joy":"F01","anger":"F03"}', required: true },
     },
+    message: (d) => `감정 매핑 ${Object.keys((d.emotionMap as Record<string, unknown>) ?? {}).length}건을 설정했습니다.`,
     handler: async (p) => {
       const map = p.map as Record<string, string>;
-      if (!map || typeof map !== "object") return { ok: false, error: "map (json object) required" };
+      if (!map || typeof map !== "object") return { ok: false, code: "INVALID_INPUT", message: "map (json object) required" };
       await engine.setEmotionMap(map);
       return { ok: true, emotionMap: map };
     },
@@ -194,9 +205,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       index: { type: "number", description: "motion index within the group (omit = random)", required: false },
     },
     examples: ['sok plugin.soksak-plugin-mascot.motion.play \'{"group":""}\''],
+    message: (d) => `모션을 재생했습니다 (그룹 "${String(d.group)}").`,
     handler: async (p) => {
       const st = engine.state();
-      if (!st.model) return { ok: false, error: "no model loaded" };
+      if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
       const group = typeof p.group === "string" ? p.group : "";
       const index = typeof p.index === "number" ? p.index : undefined;
       const played = await engine.renderer.playMotion(group, index);
@@ -211,6 +223,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false },
     },
+    message: (d) => `마스코트를 ${d.mascot ? "켰습니다" : "껐습니다"}.`,
     handler: async (p) => {
       const cur = engine.state().mascot;
       const next = typeof p.on === "boolean" ? p.on : !cur;
@@ -227,6 +240,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false },
     },
+    message: (d) => `음성 출력을 ${d.tts ? "켰습니다" : "껐습니다"}.`,
     handler: async (p) => {
       const cur = engine.state().tts;
       const next = typeof p.on === "boolean" ? p.on : !cur;

@@ -6,6 +6,7 @@
   "description": "soksak 브이튜브 TTS — 캐릭터 표현 엔진(마스코트+음성, 뷰 없음)",
   "scripts": {
     "build": "tsc --noEmit && node build.mjs",
+    "prepublishOnly": "npm run build && npx --yes soksak-plugin-doctor .",
     "dev": "node build.mjs --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -75,6 +75,8 @@ export interface CommandSpec {
   /** 낭독 문장(귀, MESSAGE-PROTOCOL §3) — speak 있으면 speak(outcome)가 문장, 없으면 message 폴백,
    *  "" = 침묵(say 류의 되먹임 차단점). */
   speak?: (out: { ok: boolean; code: string; message: string; data?: Record<string, unknown> }) => string;
+  /** 활동 스트림 한 줄 요약(MESSAGE-PROTOCOL) — 성공 data 를 받아 결과 문장을 만든다. */
+  message?: (data: Record<string, unknown>) => string;
   triggers?: { ko?: string };
   params?: Record<
     string,
