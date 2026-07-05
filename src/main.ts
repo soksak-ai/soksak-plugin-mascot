@@ -13,7 +13,7 @@ let mascot: MascotOverlay | null = null;
 export default {
   activate(ctx: PluginCtx) {
     const app = ctx.app;
-    engine = new VtuberEngine(app);
+    engine = new VtuberEngine(app, (ctx as { dir?: string }).dir ?? "");
     mascot = new MascotOverlay(engine);
     ctx.subscriptions.push({
       dispose() {

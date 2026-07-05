@@ -33,6 +33,7 @@ export interface HostApp {
   fs?: {
     readText(path: string, offset?: number): Promise<{ text: string; truncated: boolean }>;
     url(path: string): Promise<string>;
+    list(path: string, opts?: { meta?: boolean }): Promise<{ children?: Array<{ name: string; dir?: boolean }> }>;
   };
   network?: {
     http(req: {
@@ -90,6 +91,7 @@ export interface CommandSpec {
 
 export interface PluginCtx {
   app: HostApp;
+  dir: string; // 플러그인 설치 디렉토리(코어 PluginContext.dir)
   subscriptions: Array<Disposable | (() => void)>;
 }
 

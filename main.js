@@ -41371,8 +41371,9 @@ var ClaudeCliChat = class {
 
 // src/engine.ts
 var VtuberEngine = class {
-  constructor(app) {
+  constructor(app, pluginDir = "") {
     this.app = app;
+    this.pluginDir = pluginDir;
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
@@ -41570,6 +41571,33 @@ var VtuberEngine = class {
   }
   emotions() {
     return DEFAULT_EMOTIONS;
+  }
+  /** 캐릭터 후보 스캔 — modelsDir 설정(비면 <플러그인>/models) 아래 .model3.json 재귀 탐색(깊이 4). */
+  async listModels() {
+    const base = (() => {
+      const v2 = this.app.settings.get("modelsDir");
+      const s2 = typeof v2 === "string" ? v2.trim() : "";
+      return s2 || (this.pluginDir ? `${this.pluginDir}/models` : "");
+    })();
+    if (!base || !this.app.fs?.list) return [];
+    const out = [];
+    const walk = async (dir, depth) => {
+      if (depth > 4 || out.length >= 100) return;
+      let r2;
+      try {
+        r2 = await this.app.fs.list(dir);
+      } catch {
+        return;
+      }
+      for (const ch of r2?.children ?? []) {
+        const full = `${dir}/${ch.name}`;
+        if (ch.dir) await walk(full, depth + 1);
+        else if (ch.name.endsWith(".model3.json"))
+          out.push({ name: ch.name.replace(/\.model3\.json$/, ""), path: full });
+      }
+    };
+    await walk(base, 0);
+    return out.sort((a2, b2) => a2.name.localeCompare(b2.name));
   }
   listVoices() {
     return this.tts.listVoices();
@@ -41878,12 +41906,15 @@ function mountPanel(container, viewCtx, engine2) {
   const root2 = el("div", "vt-root");
   shadow.appendChild(root2);
   const toolbar = el("div", "vt-toolbar");
+  const charSel = document.createElement("select");
+  charSel.className = "vt-btn";
+  charSel.title = "character";
   const ttsBtn = el("button", "vt-btn");
   const mascotBtn = el("button", "vt-btn");
   const stopBtn = el("button", "vt-btn");
   stopBtn.textContent = "\u25A0";
   stopBtn.title = "stop";
-  toolbar.append(ttsBtn, mascotBtn, stopBtn);
+  toolbar.append(charSel, ttsBtn, mascotBtn, stopBtn);
   root2.appendChild(toolbar);
   const stage = el("div", "vt-stage");
   const stageEmpty = el("div", "vt-stage-empty");
@@ -41967,6 +41998,27 @@ function mountPanel(container, viewCtx, engine2) {
     sendBtn.disabled = st.busy;
     viewCtx.setStatus(st.busy ? { code: "busy", message: "turn in flight" } : null);
   }
+  async function fillCharacters() {
+    const models = await engine2.listModels();
+    const cur = engine2.state().model;
+    charSel.replaceChildren();
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = models.length ? "\uCE90\uB9AD\uD130\u2026" : "\uCE90\uB9AD\uD130 \uC5C6\uC74C(models/)";
+    charSel.appendChild(ph);
+    for (const m2 of models) {
+      const o2 = document.createElement("option");
+      o2.value = m2.path;
+      o2.textContent = m2.name;
+      if (cur === m2.path) o2.selected = true;
+      charSel.appendChild(o2);
+    }
+  }
+  charSel.onchange = () => {
+    const path2 = charSel.value;
+    if (path2) void engine2.loadModel(path2).catch(() => void fillCharacters());
+  };
+  void fillCharacters();
   ttsBtn.onclick = () => void engine2.setTts(!engine2.state().tts);
   mascotBtn.onclick = () => void engine2.setMascot(!engine2.state().mascot);
   stopBtn.onclick = () => void engine2.stop();
@@ -41995,6 +42047,7 @@ function mountPanel(container, viewCtx, engine2) {
     if (e2.kind === "state") {
       renderToolbar();
       renderStage();
+      void fillCharacters();
     }
   });
   renderToolbar();
@@ -42129,6 +42182,12 @@ function registerCommands(ctx, engine2, mascot2) {
       return { ok: true, cubism: true };
     }
   });
+  reg("model.list", {
+    description: "List Live2D characters found under the models directory (modelsDir setting; default = <plugin>/models).",
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uCE90\uB9AD\uD130 \uBAA9\uB85D \uBAA8\uB378 \uC2A4\uCE94" },
+    returns: "{ ok, models: [{name, path}] }",
+    handler: async () => ({ ok: true, models: await engine2.listModels() })
+  });
   reg("model.load", {
     description: "Load a Live2D Cubism 3+ model from a local .model3.json path (user-owned model).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uB77C\uC774\uBE0C2D \uBAA8\uB378 \uB85C\uB4DC \uBD88\uB7EC\uC624\uAE30 \uAD50\uCCB4" },
@@ -42232,7 +42291,7 @@ var mascot = null;
 var main_default = {
   activate(ctx) {
     const app = ctx.app;
-    engine = new VtuberEngine(app);
+    engine = new VtuberEngine(app, ctx.dir ?? "");
     mascot = new MascotOverlay(engine);
     ctx.subscriptions.push({
       dispose() {

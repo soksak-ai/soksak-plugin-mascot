@@ -29,12 +29,15 @@ export function mountPanel(container: HTMLElement, viewCtx: ViewCtx, engine: Vtu
 
   // ── 툴바 ──
   const toolbar = el("div", "vt-toolbar");
+  const charSel = document.createElement("select");
+  charSel.className = "vt-btn";
+  charSel.title = "character";
   const ttsBtn = el("button", "vt-btn") as HTMLButtonElement;
   const mascotBtn = el("button", "vt-btn") as HTMLButtonElement;
   const stopBtn = el("button", "vt-btn") as HTMLButtonElement;
   stopBtn.textContent = "■";
   stopBtn.title = "stop";
-  toolbar.append(ttsBtn, mascotBtn, stopBtn);
+  toolbar.append(charSel, ttsBtn, mascotBtn, stopBtn);
   root.appendChild(toolbar);
 
   // ── 스테이지 ──
@@ -127,6 +130,29 @@ export function mountPanel(container: HTMLElement, viewCtx: ViewCtx, engine: Vtu
     viewCtx.setStatus(st.busy ? { code: "busy", message: "turn in flight" } : null);
   }
 
+  // 캐릭터 픽커 — modelsDir 스캔 결과로 채우고, 선택=loadModel(설정 영속은 엔진이 수행)
+  async function fillCharacters(): Promise<void> {
+    const models = await engine.listModels();
+    const cur = engine.state().model;
+    charSel.replaceChildren();
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = models.length ? "캐릭터…" : "캐릭터 없음(models/)";
+    charSel.appendChild(ph);
+    for (const m of models) {
+      const o = document.createElement("option");
+      o.value = m.path;
+      o.textContent = m.name;
+      if (cur === m.path) o.selected = true;
+      charSel.appendChild(o);
+    }
+  }
+  charSel.onchange = () => {
+    const path = charSel.value;
+    if (path) void engine.loadModel(path).catch(() => void fillCharacters());
+  };
+  void fillCharacters();
+
   ttsBtn.onclick = () => void engine.setTts(!engine.state().tts);
   mascotBtn.onclick = () => void engine.setMascot(!engine.state().mascot);
   stopBtn.onclick = () => void engine.stop();
@@ -159,6 +185,7 @@ export function mountPanel(container: HTMLElement, viewCtx: ViewCtx, engine: Vtu
     if (e.kind === "state") {
       renderToolbar();
       renderStage();
+      void fillCharacters();
     }
   });
 

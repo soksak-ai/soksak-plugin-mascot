@@ -41,6 +41,19 @@
       }
     },
     {
+      "key": "modelsDir",
+      "type": "string",
+      "default": "",
+      "title": {
+        "en": "Characters folder",
+        "ko": "캐릭터 폴더"
+      },
+      "description": {
+        "en": "Directory scanned for Live2D characters (recursively finds *.model3.json). Empty = the plugin's models/ folder. Pick a character in the VTuber panel toolbar.",
+        "ko": "Live2D 캐릭터 스캔 디렉토리(*.model3.json 재귀 탐색). 비우면 플러그인의 models/ 폴더. 선택은 브이튜버 패널 툴바에서."
+      }
+    },
+    {
       "key": "agent",
       "type": "enum",
       "default": "claude",
@@ -255,6 +268,13 @@
         "title": {
           "en": "Reads plugin state",
           "ko": "플러그인 상태를 조회합니다"
+        }
+      },
+      {
+        "name": "model.list",
+        "title": {
+          "en": "Lists characters in the models folder",
+          "ko": "캐릭터 폴더의 모델을 나열합니다"
         }
       },
       {

@@ -34,7 +34,10 @@ export class VtuberEngine {
   private turnBusy = false;
   lang: string;
 
-  constructor(private app: HostApp) {
+  constructor(
+    private app: HostApp,
+    private pluginDir: string = "",
+  ) {
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
@@ -239,6 +242,34 @@ export class VtuberEngine {
 
   emotions(): readonly string[] {
     return DEFAULT_EMOTIONS;
+  }
+
+  /** 캐릭터 후보 스캔 — modelsDir 설정(비면 <플러그인>/models) 아래 .model3.json 재귀 탐색(깊이 4). */
+  async listModels(): Promise<Array<{ name: string; path: string }>> {
+    const base = (() => {
+      const v = this.app.settings.get("modelsDir");
+      const s = typeof v === "string" ? v.trim() : "";
+      return s || (this.pluginDir ? `${this.pluginDir}/models` : "");
+    })();
+    if (!base || !this.app.fs?.list) return [];
+    const out: Array<{ name: string; path: string }> = [];
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      if (depth > 4 || out.length >= 100) return;
+      let r: { children?: Array<{ name: string; dir?: boolean }> };
+      try {
+        r = await this.app.fs!.list(dir);
+      } catch {
+        return; // 폴더 없음/권한 — 조용히 스킵(설정 카드가 안내)
+      }
+      for (const ch of r?.children ?? []) {
+        const full = `${dir}/${ch.name}`;
+        if (ch.dir) await walk(full, depth + 1);
+        else if (ch.name.endsWith(".model3.json"))
+          out.push({ name: ch.name.replace(/\.model3\.json$/, ""), path: full });
+      }
+    };
+    await walk(base, 0);
+    return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   listVoices(): Array<{ name: string; lang: string; default: boolean }> {

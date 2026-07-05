@@ -119,6 +119,14 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
     },
   });
 
+  reg("model.list", {
+    description:
+      "List Live2D characters found under the models directory (modelsDir setting; default = <plugin>/models).",
+    triggers: { ko: "브이튜버 캐릭터 목록 모델 스캔" },
+    returns: "{ ok, models: [{name, path}] }",
+    handler: async () => ({ ok: true, models: await engine.listModels() }),
+  });
+
   reg("model.load", {
     description: "Load a Live2D Cubism 3+ model from a local .model3.json path (user-owned model).",
     triggers: { ko: "브이튜버 라이브2D 모델 로드 불러오기 교체" },
