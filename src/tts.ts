@@ -1,4 +1,4 @@
-// TTS seam — M1=speechSynthesis(API 3사 균일, OS 음성팩만 상이), M2a=사이드카 WAV 로 교체되는 지점.
+// TTS seam — 기본은 speechSynthesis(OS 음성, 제로 설치 폴백). 사이드카(SidecarTts)가 설정되면 그쪽이 1차.
 // 엔진 인터페이스는 문장 1개 발화 계약만 — 큐잉·감정 연동은 SpeechQueue 가 소유.
 import type { Utterance } from "@/types";
 

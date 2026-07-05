@@ -138,12 +138,7 @@ export class VtuberEngine {
     // 캐시된 Cubism Core 는 조용히 복원(동의는 이미 이뤄짐) — 미동의/미캐시면 설정 카드가 안내.
     if (s.cubismAccepted) await cubism.ensureFromCache(this.app);
 
-    // 구버전 kv modelPath → 코어 설정 승격(1회 마이그레이션 — 설정이 비어 있을 때만).
-    let path = this.configuredModelPath();
-    if (!path && this.settings.legacyModelPath) {
-      path = this.settings.legacyModelPath;
-      await this.persistModelPath(path);
-    }
+    const path = this.configuredModelPath();
     if (path && cubism.cubismLoaded()) {
       try {
         await this.loadModel(path);
@@ -256,7 +251,7 @@ export class VtuberEngine {
 
   async loadModel(path: string): Promise<LoadedModelInfo> {
     if (!cubism.cubismLoaded()) {
-      throw new Error("Cubism Core not installed — run vtuber.cubism.install {accept:true} first");
+      throw new Error("Cubism Core not installed — run cubism.install {accept:true} first");
     }
     const info = await this.renderer.loadModel(path);
     if (this.configuredModelPath() !== path) await this.persistModelPath(path);

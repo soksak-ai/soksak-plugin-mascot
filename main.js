@@ -27685,19 +27685,13 @@ var SettingsStore = class {
     this.app = app;
   }
   cur = { ...DEFAULTS };
-  /** 구버전 kv 에 저장됐던 모델 경로 — 코어 설정으로 승격 마이그레이션용(1회 읽기). */
-  legacyModelPath = null;
   get() {
     return this.cur;
   }
   async load() {
     try {
       const raw = await this.app.data?.kv.get(KEY);
-      if (raw && typeof raw === "object") {
-        this.legacyModelPath = typeof raw.modelPath === "string" ? raw.modelPath : null;
-        const { modelPath: _legacy, ...rest } = raw;
-        this.cur = { ...DEFAULTS, ...rest };
-      }
+      if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
     } catch (e2) {
       console.error("[vtuber] settings load \uC2E4\uD328:", e2);
     }
@@ -40363,7 +40357,7 @@ async function install(app, accept) {
 var live2dLib = null;
 async function loadLive2dLib() {
   if (!cubismLoaded()) {
-    throw new Error("Cubism Core not installed \u2014 run vtuber.cubism.install {accept:true} first");
+    throw new Error("Cubism Core not installed \u2014 run cubism.install {accept:true} first");
   }
   if (!live2dLib) live2dLib = await Promise.resolve().then(() => (init_cubism4_es(), cubism4_es_exports));
   return live2dLib;
@@ -40624,25 +40618,10 @@ var Live2DRenderer = class {
     if (!this.pixi) return null;
     return await this.pixi.renderer.extract.base64(this.pixi.stage, "image/png");
   }
-  /** 입 파라미터 진단 — raw core 의 파라미터 id/현재값(문자열 id 세팅이 실제 반영되는지 판별). */
+  /** 입 진단 — lastWrite(이번 프레임 실제 쓴 값)가 유일한 신뢰 지표(raw 읽기는 매 프레임 복원돼 항상 0). */
   mouthDiag() {
-    const out = [];
-    const core = this.model?.internalModel?.coreModel;
-    const raw = core?._model ?? core?.model;
-    const ids = raw?.parameters?.ids;
-    const values = raw?.parameters?.values;
-    if (ids && values) {
-      ids.forEach((id, i2) => {
-        if (/mouth/i.test(id)) out.push({ id, value: Number(values[i2]?.toFixed?.(3) ?? values[i2]) });
-      });
-    }
-    const lip = this.lipSyncIds.map((id) => {
-      const i2 = ids?.indexOf(id) ?? -1;
-      return { id, value: i2 >= 0 && values ? Number(values[i2]?.toFixed?.(3) ?? values[i2]) : null };
-    });
     return {
-      ids: out,
-      lipSync: lip,
+      lipSyncIds: this.lipSyncIds,
       mouthLevel: this.mouthLevel,
       smooth: Number(this.mouthSmooth.toFixed(3)),
       lastWrite: Number(this.lastMouthWrite.toFixed(3))
@@ -41478,11 +41457,7 @@ var VtuberEngine = class {
     await this.settings.load();
     const s2 = this.settings.get();
     if (s2.cubismAccepted) await ensureFromCache(this.app);
-    let path2 = this.configuredModelPath();
-    if (!path2 && this.settings.legacyModelPath) {
-      path2 = this.settings.legacyModelPath;
-      await this.persistModelPath(path2);
-    }
+    const path2 = this.configuredModelPath();
     if (path2 && cubismLoaded()) {
       try {
         await this.loadModel(path2);
@@ -41582,7 +41557,7 @@ var VtuberEngine = class {
   }
   async loadModel(path2) {
     if (!cubismLoaded()) {
-      throw new Error("Cubism Core not installed \u2014 run vtuber.cubism.install {accept:true} first");
+      throw new Error("Cubism Core not installed \u2014 run cubism.install {accept:true} first");
     }
     const info = await this.renderer.loadModel(path2);
     if (this.configuredModelPath() !== path2) await this.persistModelPath(path2);
@@ -42019,7 +41994,7 @@ function errP(e2) {
 }
 
 // src/commands.ts
-var VERSION3 = "0.1.0";
+var VERSION3 = "1.0.0";
 function registerCommands(ctx, engine2, mascot2) {
   const app = ctx.app;
   if (!app.commands?.register) return;
@@ -42073,7 +42048,7 @@ function registerCommands(ctx, engine2, mascot2) {
       text: { type: "string", description: "user message", required: true }
     },
     returns: "{ ok, reply, utterances:[{text, emotion}] }",
-    examples: ['vtuber.chat {"text":"\uC548\uB155!"}'],
+    examples: [`sok plugin.soksak-plugin-vtuber.chat '{"text":"\uC548\uB155!"}'`],
     handler: async (p3) => {
       const text = String(p3.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -42088,7 +42063,7 @@ function registerCommands(ctx, engine2, mascot2) {
       text: { type: "string", description: "text to speak (may contain [emotion] tags)", required: true }
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
-    examples: ['vtuber.say {"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'],
+    examples: [`sok plugin.soksak-plugin-vtuber.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
     handler: (p3) => {
       const text = String(p3.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -42126,7 +42101,7 @@ function registerCommands(ctx, engine2, mascot2) {
       path: { type: "string", description: "absolute path to .model3.json", required: true }
     },
     returns: "{ ok, path, expressions, motionGroups }",
-    examples: ['vtuber.model.load {"path":"/Users/me/models/hiyori/hiyori.model3.json"}'],
+    examples: [`sok plugin.soksak-plugin-vtuber.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
     handler: async (p3) => {
       const info = await engine2.loadModel(String(p3.path ?? ""));
       mascot2.sync();

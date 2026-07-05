@@ -99,8 +99,8 @@
         "ko": "목소리"
       },
       "description": {
-        "en": "OS voice name (partial match, e.g. \"Yuna\"). Empty = locale-preferred voice. List candidates with vtuber.state {\"voices\":true}.",
-        "ko": "OS 보이스 이름(부분일치, 예: \"Yuna\"). 비우면 로케일 선호 보이스. 후보 목록은 vtuber.state {\"voices\":true}."
+        "en": "OS voice name (partial match, e.g. \"Yuna\"). Empty = locale-preferred voice. List candidates with the state command ({\"voices\":true}).",
+        "ko": "OS 보이스 이름(부분일치, 예: \"Yuna\"). 비우면 로케일 선호 보이스. 후보 목록은 state 커맨드({\"voices\":true})."
       }
     },
     {
@@ -171,8 +171,8 @@
         "ko": "화자 번호"
       },
       "description": {
-        "en": "Voice within a multi-speaker model (0-based). Valid range shows as numSpeakers in vtuber.state (sidecarInfo). Single-speaker models ignore this.",
-        "ko": "멀티스피커 모델 안의 음성 선택(0부터). 유효 범위는 vtuber.state 의 sidecarInfo.numSpeakers. 단일 화자 모델은 무시."
+        "en": "Voice within a multi-speaker model (0-based). Valid range shows as sidecarInfo.numSpeakers in the state command. Single-speaker models ignore this.",
+        "ko": "멀티스피커 모델 안의 음성 선택(0부터). 유효 범위는 state 커맨드의 sidecarInfo.numSpeakers. 단일 화자 모델은 무시."
       }
     },
     {

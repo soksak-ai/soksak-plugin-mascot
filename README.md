@@ -1,44 +1,52 @@
 # soksak-plugin-vtuber
 
-Live2D avatar companion for soksak. Chat with a local AI agent; the avatar reacts with expressions, subtitles, and speech. Works as a content panel view and as a click-through screen mascot overlay.
+Live2D avatar companion for soksak. Chat with a local AI agent; the avatar answers with a natural local voice, amplitude-driven lip sync, expressions, and subtitles. Works as a content panel view and as a click-through screen mascot overlay.
 
 한국어: [README.ko.md](README.ko.md)
 
 ## What it does
 
 - Renders a Live2D Cubism 3+ model (`.model3.json`) with WebGL (pixi.js + pixi-live2d-display) in a panel view or a floating mascot overlay.
-- Runs chat turns through the local agent runtime (`soksak-plugin-agents-acp`, Claude preset) with a companion persona. No API key handling in this plugin.
-- Streams the reply sentence-by-sentence: each sentence is subtitled, spoken via the OS voice (`speechSynthesis`), and mapped to a model expression via emotion tags (`[joy]`, `[anger]`, …) the persona asks the LLM to emit.
-- Speaking animates the mouth with a deterministic pseudo lip-sync (M1). Real amplitude-driven lip-sync arrives with the speech sidecar milestone.
-- Everything is a command (`vtuber.*`) — the UI and the CLI drive the same engine operations.
+- Chat backends: a resident `claude -p` process (`claude-bare`, lowest first-token latency) or the agents-acp runtime (Claude / Codex / Gemini). Conversation continuity is kept across turns.
+- Speech: a local neural TTS sidecar ([soksak-sidecar-speech-sherpa](https://github.com/soksak-ai/soksak-sidecar-speech-sherpa) — Supertonic / VITS / Kokoro engines) streams PCM chunks into Web Audio; the OS voice (`speechSynthesis`) is the zero-install fallback.
+- Lip sync is measured: an AnalyserNode tracks playback amplitude and drives the model's `LipSync` group parameters each frame.
+- Emotion tags (`[joy]`, `[sadness]`, …) switch expressions; Supertonic 3 expression tags (`<laugh>`, `<breath>`, `<sigh>`) render as actual vocal expressions and are hidden from subtitles.
+- Everything is a command — the UI and the CLI drive the same engine operations.
+
+## Settings
+
+| Key | Meaning |
+| --- | --- |
+| `modelPath` | Character `.model3.json` (live switch) |
+| `agent` / `agentModel` | Chat backend and model id |
+| `speechSidecarBin` / `speechModelDir` / `speechEngine` | Local TTS sidecar (binary, model dir, `vits`/`kokoro`/`supertonic`) |
+| `speechSpeakerId` / `speechSpeed` | Voice style (0-based) and rate |
+| `voiceName` | OS-voice fallback pick |
 
 ## Requirements and licensing
 
 - **Live2D Cubism Core is not bundled.** It is proprietary (© Live2D Inc.). On first use the plugin asks for consent and downloads it from the official Live2D CDN, caching it locally. Publishing an app that uses the Cubism SDK may require a Live2D publication license depending on your revenue — see Live2D's terms.
-- **No models are bundled.** Live2D sample models carry per-character terms. Point the plugin at a `.model3.json` you own or are licensed to use. Cubism 2 (`.moc`) models are not supported.
+- **No models are bundled** (avatar or speech). Point the plugin at assets you own or are licensed to use. Cubism 2 (`.moc`) models are not supported.
 - The pipeline design is informed by the MIT-licensed [Open-LLM-VTuber](https://github.com/Open-LLM-VTuber/Open-LLM-VTuber) project; no code was copied.
-- `npm run license-gate` asserts that no proprietary artifacts (Cubism Core, `.moc3`, `.model3.json`) are present in the repo or inlined in the bundle.
-
-## Voice notes
-
-`speechSynthesis` availability and voice quality depend on the OS (macOS/Windows ship Korean and English voices; some Linux systems have none — subtitles still work). Voice can be toggled with `vtuber.tts.toggle`.
+- `npm run license-gate` asserts that no proprietary artifacts (Cubism Core, `.moc3`, `.model3.json`) are committed or inlined in the bundle.
 
 ## Commands
 
+Command names are plugin-relative; the full registry address is `plugin.soksak-plugin-vtuber.<name>` (e.g. `sok plugin.soksak-plugin-vtuber.chat '{"text":"hi"}'`).
+
 | Command | Description |
 | --- | --- |
-| `vtuber.ping` | Load/version probe |
-| `vtuber.state` | Current state (cubism/model/expressions/mascot/tts/busy) |
-| `vtuber.chat {text}` | One agent turn, spoken + subtitled |
-| `vtuber.say {text}` | Speak locally without the LLM (honors `[emotion]` tags) |
-| `vtuber.stop` | Stop speech, cancel the turn |
-| `vtuber.cubism.install {accept}` | Consent + download Cubism Core |
-| `vtuber.model.load {path}` | Load `.model3.json` |
-| `vtuber.expression.list` | Model expressions + emotion map |
-| `vtuber.expression.set {name}` | Apply expression or emotion |
-| `vtuber.emotion.map {map}` | Set emotion→expression mapping |
-| `vtuber.mascot.toggle {on?}` | Screen mascot overlay on/off |
-| `vtuber.tts.toggle {on?}` | Voice output on/off |
+| `ping` | Load/version probe |
+| `state` | State (`probe`/`png`/`voices` flags add diagnostics) |
+| `chat {text}` | One agent turn, spoken + subtitled (returns timing) |
+| `say {text}` | Speak locally without the LLM (honors `[emotion]` and `<laugh>` tags) |
+| `stop` | Stop speech, cancel the turn |
+| `cubism.install {accept}` | Consent + download Cubism Core |
+| `model.load {path}` | Load `.model3.json` |
+| `expression.list` / `expression.set {name}` | Expressions |
+| `emotion.map {map}` | Emotion→expression mapping |
+| `mascot.toggle {on?}` | Screen mascot overlay |
+| `tts.toggle {on?}` | Voice output |
 
 ## Development
 

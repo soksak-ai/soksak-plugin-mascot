@@ -15,7 +15,7 @@ type Live2dLib = typeof import("pixi-live2d-display-lipsyncpatch/cubism4");
 let live2dLib: Live2dLib | null = null;
 async function loadLive2dLib(): Promise<Live2dLib> {
   if (!cubismLoaded()) {
-    throw new Error("Cubism Core not installed — run vtuber.cubism.install {accept:true} first");
+    throw new Error("Cubism Core not installed — run cubism.install {accept:true} first");
   }
   if (!live2dLib) live2dLib = await import("pixi-live2d-display-lipsyncpatch/cubism4");
   return live2dLib;
@@ -317,31 +317,10 @@ export class Live2DRenderer {
     return await (this.pixi.renderer as any).extract.base64(this.pixi.stage, "image/png");
   }
 
-  /** 입 파라미터 진단 — raw core 의 파라미터 id/현재값(문자열 id 세팅이 실제 반영되는지 판별). */
-  mouthDiag(): {
-    ids: Array<{ id: string; value: number }>;
-    lipSync: Array<{ id: string; value: number | null }>;
-    mouthLevel: number | null;
-    smooth: number;
-    lastWrite: number;
-  } {
-    const out: Array<{ id: string; value: number }> = [];
-    const core = (this.model?.internalModel as any)?.coreModel;
-    const raw = core?._model ?? core?.model; // framework CubismModel 내부의 raw core 모델
-    const ids: string[] | undefined = raw?.parameters?.ids;
-    const values: Float32Array | number[] | undefined = raw?.parameters?.values;
-    if (ids && values) {
-      ids.forEach((id, i) => {
-        if (/mouth/i.test(id)) out.push({ id, value: Number((values as any)[i]?.toFixed?.(3) ?? values[i]) });
-      });
-    }
-    const lip = this.lipSyncIds.map((id) => {
-      const i = ids?.indexOf(id) ?? -1;
-      return { id, value: i >= 0 && values ? Number((values as any)[i]?.toFixed?.(3) ?? values[i]) : null };
-    });
+  /** 입 진단 — lastWrite(이번 프레임 실제 쓴 값)가 유일한 신뢰 지표(raw 읽기는 매 프레임 복원돼 항상 0). */
+  mouthDiag(): { lipSyncIds: string[]; mouthLevel: number | null; smooth: number; lastWrite: number } {
     return {
-      ids: out,
-      lipSync: lip,
+      lipSyncIds: this.lipSyncIds,
       mouthLevel: this.mouthLevel,
       smooth: Number(this.mouthSmooth.toFixed(3)),
       lastWrite: Number(this.lastMouthWrite.toFixed(3)),

@@ -6,7 +6,7 @@ import type { VtuberEngine } from "@/engine";
 import type { MascotOverlay } from "@/mascot";
 import { DEFAULT_EMOTIONS } from "@/pipeline";
 
-const VERSION = "0.1.0";
+const VERSION = "1.0.0";
 
 export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: MascotOverlay): void {
   const app = ctx.app;
@@ -67,7 +67,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
       text: { type: "string", description: "user message", required: true },
     },
     returns: "{ ok, reply, utterances:[{text, emotion}] }",
-    examples: ['vtuber.chat {"text":"안녕!"}'],
+    examples: ['sok plugin.soksak-plugin-vtuber.chat \'{"text":"안녕!"}\''],
     handler: async (p) => {
       const text = String(p.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -84,7 +84,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
       text: { type: "string", description: "text to speak (may contain [emotion] tags)", required: true },
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
-    examples: ['vtuber.say {"text":"[joy] 반가워요!"}'],
+    examples: ['sok plugin.soksak-plugin-vtuber.say \'{"text":"[joy] 반가워요!"}\''],
     handler: (p) => {
       const text = String(p.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
@@ -126,7 +126,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
       path: { type: "string", description: "absolute path to .model3.json", required: true },
     },
     returns: "{ ok, path, expressions, motionGroups }",
-    examples: ['vtuber.model.load {"path":"/Users/me/models/hiyori/hiyori.model3.json"}'],
+    examples: ['sok plugin.soksak-plugin-vtuber.model.load \'{"path":"/Users/me/models/hiyori/hiyori.model3.json"}\''],
     handler: async (p) => {
       const info = await engine.loadModel(String(p.path ?? ""));
       mascot.sync();
