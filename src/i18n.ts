@@ -22,10 +22,6 @@ const STRINGS = {
   chatPlaceholder: { en: "Talk to the character…", ko: "캐릭터에게 말 걸기…" },
   send: { en: "Send", ko: "전송" },
   thinking: { en: "Thinking…", ko: "생각 중…" },
-  sidebarHolds: {
-    en: "Avatar is in the activity sidebar — switch its display to text-only to bring it back.",
-    ko: "아바타가 활동 사이드바에 있습니다 — 표시를 텍스트 전용으로 바꾸면 여기로 돌아옵니다."
-  },
   mascotHolds: {
     en: "Avatar is in mascot mode — toggle mascot off to bring it back here.",
     ko: "아바타가 마스코트 모드에 있습니다 — 마스코트를 끄면 여기로 돌아옵니다."

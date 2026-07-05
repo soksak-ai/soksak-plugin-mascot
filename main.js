@@ -41208,76 +41208,6 @@ var AcpChat = class {
   }
 };
 
-// src/narrator.ts
-var MAX_ENTRIES = 80;
-function shortCmd(line) {
-  const s2 = (line ?? "").trim().split("\n")[0];
-  return s2.length > 48 ? s2.slice(0, 45) + "\u2026" : s2;
-}
-var ActivityNarrator = class {
-  constructor(app, opts) {
-    this.app = app;
-    this.opts = opts;
-  }
-  entries = [];
-  listeners = /* @__PURE__ */ new Set();
-  subs = [];
-  start() {
-    const on = this.app.events?.on;
-    if (!on) return;
-    const ko = this.opts.lang().startsWith("ko");
-    this.subs.push(
-      on("command.started", (p3) => {
-        const cmd = shortCmd(p3?.commandLine);
-        if (!cmd) return;
-        this.push({
-          kind: "terminal.start",
-          text: ko ? `\uC2E4\uD589: ${cmd}` : `run: ${cmd}`
-        });
-      }),
-      on("command.finished", (p3) => {
-        const code = typeof p3?.exitCode === "number" ? p3.exitCode : null;
-        const okKo = code === 0 || code == null ? "\uD130\uBBF8\uB110 \uBA85\uB839\uC774 \uB05D\uB0AC\uC5B4\uC694." : `\uBA85\uB839\uC774 \uC2E4\uD328\uD588\uC5B4\uC694. \uCF54\uB4DC ${code}.`;
-        const okEn = code === 0 || code == null ? "A terminal command finished." : `A command failed with code ${code}.`;
-        this.push({
-          kind: "terminal.done",
-          text: ko ? `\uC885\uB8CC(${code ?? "?"})` : `exit(${code ?? "?"})`,
-          speak: ko ? okKo : okEn
-        });
-      }),
-      on("turn.ended", (p3) => {
-        const agent = typeof p3?.agentKind === "string" && p3.agentKind ? p3.agentKind : null;
-        this.push({
-          kind: "turn.ended",
-          text: ko ? `${agent ?? "AI"} \uD134 \uC885\uB8CC` : `${agent ?? "AI"} turn ended`,
-          tts: false
-        });
-      })
-    );
-  }
-  push(e2) {
-    const entry = { ...e2, ts: Date.now(), tts: e2.tts !== false };
-    this.entries.push(entry);
-    if (this.entries.length > MAX_ENTRIES) this.entries.splice(0, this.entries.length - MAX_ENTRIES);
-    if (entry.tts && entry.speak && this.opts.narrate() && !this.opts.speaking()) {
-      this.opts.speak(entry.speak);
-    }
-    for (const fn of this.listeners) fn();
-  }
-  list() {
-    return this.entries;
-  }
-  onChange(fn) {
-    this.listeners.add(fn);
-    return { dispose: () => this.listeners.delete(fn) };
-  }
-  dispose() {
-    for (const s2 of this.subs) s2.dispose();
-    this.subs = [];
-    this.listeners.clear();
-  }
-};
-
 // src/claudeCli.ts
 var ClaudeCliChat = class {
   constructor(app, model) {
@@ -41505,15 +41435,6 @@ var VtuberEngine = class {
         self2.tts.cancel();
       }
     };
-    this.narrator = new ActivityNarrator(app, {
-      lang: () => this.lang,
-      narrate: () => {
-        const v2 = this.app.settings.get("activityNarrate");
-        return v2 !== false;
-      },
-      speak: (text) => this.speakText(text),
-      speaking: () => this.speech.speaking || this.turnBusy
-    });
     this.speech = new SpeechQueue(
       composite,
       {
@@ -41543,8 +41464,6 @@ var VtuberEngine = class {
   speech;
   acp;
   claudeCli;
-  narrator;
-  activityMounted = false;
   listeners = /* @__PURE__ */ new Set();
   chatLog = [];
   turnBusy = false;
@@ -41569,24 +41488,12 @@ var VtuberEngine = class {
     const v2 = this.app.settings.get("agentModel");
     return typeof v2 === "string" ? v2.trim() : "";
   }
-  /** 사이드바 활동 뷰 표시 모드 — text | character | text-character. */
-  activityDisplay() {
-    const v2 = this.app.settings.get("activityDisplay");
-    return v2 === "text" || v2 === "character" ? v2 : "text-character";
-  }
-  /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 사이드바(캐릭터 모드) > 패널. */
+  /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 패널. */
   characterAt() {
-    if (this.settings.get().mascotOn) return "mascot";
-    if (this.activityMounted && this.activityDisplay() !== "text") return "sidebar";
-    return "panel";
-  }
-  setActivityMounted(on) {
-    this.activityMounted = on;
-    this.emit({ kind: "state" });
+    return this.settings.get().mascotOn ? "mascot" : "panel";
   }
   async init() {
     await this.settings.load();
-    this.narrator.start();
     const s2 = this.settings.get();
     if (s2.cubismAccepted) await ensureFromCache(this.app);
     const path2 = this.configuredModelPath();
@@ -41822,7 +41729,6 @@ var VtuberEngine = class {
     this.emit({ kind: "state" });
   }
   dispose() {
-    this.narrator.dispose();
     this.speech.cancel();
     this.sidecar.dispose();
     this.acp.dispose();
@@ -41972,10 +41878,6 @@ var STRINGS = {
   chatPlaceholder: { en: "Talk to the character\u2026", ko: "\uCE90\uB9AD\uD130\uC5D0\uAC8C \uB9D0 \uAC78\uAE30\u2026" },
   send: { en: "Send", ko: "\uC804\uC1A1" },
   thinking: { en: "Thinking\u2026", ko: "\uC0DD\uAC01 \uC911\u2026" },
-  sidebarHolds: {
-    en: "Avatar is in the activity sidebar \u2014 switch its display to text-only to bring it back.",
-    ko: "\uC544\uBC14\uD0C0\uAC00 \uD65C\uB3D9 \uC0AC\uC774\uB4DC\uBC14\uC5D0 \uC788\uC2B5\uB2C8\uB2E4 \u2014 \uD45C\uC2DC\uB97C \uD14D\uC2A4\uD2B8 \uC804\uC6A9\uC73C\uB85C \uBC14\uAFB8\uBA74 \uC5EC\uAE30\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4."
-  },
   mascotHolds: {
     en: "Avatar is in mascot mode \u2014 toggle mascot off to bring it back here.",
     ko: "\uC544\uBC14\uD0C0\uAC00 \uB9C8\uC2A4\uCF54\uD2B8 \uBAA8\uB4DC\uC5D0 \uC788\uC2B5\uB2C8\uB2E4 \u2014 \uB9C8\uC2A4\uCF54\uD2B8\uB97C \uB044\uBA74 \uC5EC\uAE30\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4."
@@ -42048,7 +41950,7 @@ function mountPanel(container, viewCtx, engine2) {
     engine2.renderer.detach(stage);
     stageEmpty.style.display = "flex";
     if (st.model && at !== "panel") {
-      stageEmpty.textContent = at === "mascot" ? t2("mascotHolds") : t2("sidebarHolds");
+      stageEmpty.textContent = t2("mascotHolds");
       return;
     }
     const card = el("div", "vt-card");
@@ -42183,92 +42085,6 @@ function errP(e2) {
   el2.className = "vt-err";
   el2.textContent = String(e2 instanceof Error ? e2.message : e2);
   return el2;
-}
-
-// src/activityView.ts
-var mounts2 = /* @__PURE__ */ new WeakMap();
-function mountActivity(container, _viewCtx, engine2) {
-  unmountActivity(container);
-  container.style.position = "relative";
-  const shadow = container.shadowRoot ?? container.attachShadow({ mode: "open" });
-  shadow.replaceChildren();
-  const style = document.createElement("style");
-  style.textContent = GLOBAL_CSS + `
-.va-root { position:absolute; inset:0; display:flex; flex-direction:column; font:12px/1.45 system-ui,sans-serif; color:#d8d8e0; }
-.va-stage { position:relative; flex:0 0 46%; min-height:120px; display:none; }
-.va-stage.on { display:block; }
-.va-log { flex:1; overflow-y:auto; padding:6px 8px; display:flex; flex-direction:column; gap:3px; }
-.va-row { display:flex; gap:6px; align-items:baseline; }
-.va-time { color:#8a8a96; font-size:10px; flex:none; }
-.va-text { white-space:pre-wrap; word-break:break-all; }
-.va-row.terminal-done .va-text { color:#bfe3bf; }
-.va-row.turn-ended .va-text { color:#ffd9e8; }
-.va-empty { color:#8a8a96; padding:12px; text-align:center; }
-`;
-  shadow.appendChild(style);
-  const root2 = document.createElement("div");
-  root2.className = "va-root";
-  shadow.appendChild(root2);
-  const stage = document.createElement("div");
-  stage.className = "va-stage";
-  const log = document.createElement("div");
-  log.className = "va-log";
-  root2.append(stage, log);
-  engine2.setActivityMounted(true);
-  function renderStage() {
-    const showChar = engine2.characterAt() === "sidebar";
-    stage.classList.toggle("on", showChar);
-    if (showChar) engine2.renderer.attach(stage);
-    else engine2.renderer.detach(stage);
-  }
-  function renderLog() {
-    const entries = engine2.narrator.list();
-    const showText = engine2.activityDisplay() !== "character";
-    log.style.display = showText ? "flex" : "none";
-    if (!showText) return;
-    log.replaceChildren();
-    if (entries.length === 0) {
-      const e2 = document.createElement("div");
-      e2.className = "va-empty";
-      e2.textContent = engine2.lang.startsWith("ko") ? "\uC544\uC9C1 \uD65C\uB3D9\uC774 \uC5C6\uC5B4\uC694" : "no activity yet";
-      log.appendChild(e2);
-      return;
-    }
-    for (const en of entries) {
-      const row = document.createElement("div");
-      row.className = `va-row ${en.kind.replace(".", "-")}`;
-      const t2 = document.createElement("span");
-      t2.className = "va-time";
-      t2.textContent = new Date(en.ts).toTimeString().slice(0, 5);
-      const x2 = document.createElement("span");
-      x2.className = "va-text";
-      x2.textContent = en.text;
-      row.append(t2, x2);
-      log.appendChild(row);
-    }
-    log.scrollTop = log.scrollHeight;
-  }
-  const sub1 = engine2.narrator.onChange(renderLog);
-  const sub2 = engine2.on((e2) => {
-    if (e2.kind === "state") {
-      renderStage();
-      renderLog();
-    }
-  });
-  renderStage();
-  renderLog();
-  mounts2.set(container, {
-    dispose() {
-      sub1.dispose();
-      sub2.dispose();
-      engine2.renderer.detach(stage);
-      engine2.setActivityMounted(false);
-    }
-  });
-}
-function unmountActivity(container) {
-  mounts2.get(container)?.dispose();
-  mounts2.delete(container);
 }
 
 // src/commands.ts
@@ -42429,19 +42245,6 @@ function registerCommands(ctx, engine2, mascot2) {
       return { ok: true, emotionMap: map4 };
     }
   });
-  reg("activity.list", {
-    description: "List recent activity entries the narrator holds. Each entry carries tts:false when it must never be spoken (AI-utterance events are log-only).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD65C\uB3D9 \uB85C\uADF8 \uBAA9\uB85D \uC870\uD68C" },
-    params: {
-      limit: { type: "number", description: "max entries (default 20)", required: false }
-    },
-    returns: "{ ok, entries: [{ts, kind, text, tts}] }",
-    handler: (p3) => {
-      const limit = typeof p3.limit === "number" ? Math.max(1, p3.limit) : 20;
-      const all = engine2.narrator.list();
-      return { ok: true, entries: all.slice(-limit) };
-    }
-  });
   reg("motion.play", {
     description: 'Play a model motion. group = a Motions group from the model (often "Idle" and "" for tap motions); omit index for a random one in the group.',
     triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uBAA8\uC158 \uC7AC\uC0DD \uB3D9\uC791 \uC6C0\uC9C1\uC784" },
@@ -42511,14 +42314,6 @@ var main_default = {
         },
         unmount(container) {
           unmountPanel(container);
-        }
-      }),
-      app.ui.registerView("activity", {
-        mount(container, viewCtx) {
-          if (engine) mountActivity(container, viewCtx, engine);
-        },
-        unmount(container) {
-          unmountActivity(container);
         }
       })
     );

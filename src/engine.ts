@@ -7,7 +7,6 @@ import { Live2DRenderer, type LoadedModelInfo } from "@/renderer";
 import { SpeechQueue, SpeechSynthesisTts, type TtsEngine } from "@/tts";
 import { SidecarTts } from "@/sidecarTts";
 import { AcpChat } from "@/acp";
-import { ActivityNarrator } from "@/narrator";
 import { ClaudeCliChat } from "@/claudeCli";
 import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion, personaPreamble } from "@/pipeline";
 import * as cubism from "@/cubism";
@@ -30,8 +29,6 @@ export class VtuberEngine {
   private speech: SpeechQueue;
   private acp: AcpChat;
   private claudeCli!: ClaudeCliChat;
-  readonly narrator: ActivityNarrator;
-  private activityMounted = false;
   private listeners = new Set<(e: EngineEvent) => void>();
   private chatLog: ChatEntry[] = [];
   private turnBusy = false;
@@ -105,15 +102,6 @@ export class VtuberEngine {
         self.tts.cancel();
       },
     };
-    this.narrator = new ActivityNarrator(app, {
-      lang: () => this.lang,
-      narrate: () => {
-        const v = this.app.settings.get("activityNarrate");
-        return v !== false; // 기본 on
-      },
-      speak: (text) => this.speakText(text),
-      speaking: () => this.speech.speaking || this.turnBusy,
-    });
     this.speech = new SpeechQueue(
       composite,
       {
@@ -162,27 +150,13 @@ export class VtuberEngine {
     return typeof v === "string" ? v.trim() : "";
   }
 
-  /** 사이드바 활동 뷰 표시 모드 — text | character | text-character. */
-  activityDisplay(): "text" | "character" | "text-character" {
-    const v = this.app.settings.get("activityDisplay");
-    return v === "text" || v === "character" ? v : "text-character";
-  }
-
-  /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 사이드바(캐릭터 모드) > 패널. */
-  characterAt(): "mascot" | "sidebar" | "panel" {
-    if (this.settings.get().mascotOn) return "mascot";
-    if (this.activityMounted && this.activityDisplay() !== "text") return "sidebar";
-    return "panel";
-  }
-
-  setActivityMounted(on: boolean): void {
-    this.activityMounted = on;
-    this.emit({ kind: "state" });
+  /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 패널. */
+  characterAt(): "mascot" | "panel" {
+    return this.settings.get().mascotOn ? "mascot" : "panel";
   }
 
   async init(): Promise<void> {
     await this.settings.load();
-    this.narrator.start();
     const s = this.settings.get();
     // 캐시된 Cubism Core 는 조용히 복원(동의는 이미 이뤄짐) — 미동의/미캐시면 설정 카드가 안내.
     if (s.cubismAccepted) await cubism.ensureFromCache(this.app);
@@ -451,7 +425,6 @@ export class VtuberEngine {
   }
 
   dispose(): void {
-    this.narrator.dispose();
     this.speech.cancel();
     this.sidecar.dispose();
     this.acp.dispose();
