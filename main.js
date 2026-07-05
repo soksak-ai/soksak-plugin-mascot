@@ -40842,6 +40842,23 @@ var SpeechSidecarProc = class {
     this.subs = [];
     this.handle = null;
     this.buf = "";
+    this.releaseWhenDrained = false;
+  }
+  // 엔진 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 모델을 든 상주
+  // 프로세스는 창마다 수백 MB(실측: 5창 상주 = ~2.9GB → 웹뷰 boot OOM) — 자격을 잃은 창
+  // (narrator 상실·vtube 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
+  // 다음 자격 창의 첫 say 가 lazy 재기동(시간 휴리스틱 없음 — 자격 전이가 수명을 결정).
+  releaseWhenDrained = false;
+  release() {
+    if (this.handle == null) return;
+    if (this.pending.size > 0) {
+      this.releaseWhenDrained = true;
+      return;
+    }
+    const h2 = this.handle;
+    this.teardown();
+    void this.app.process?.kill(h2).catch(() => {
+    });
   }
   async ensure() {
     if (this.handle != null && this.spawnedSig !== this.sig()) {
@@ -40925,12 +40942,14 @@ var SpeechSidecarProc = class {
       if (msg.done === true || msg.ok === false) {
         this.pending.delete(msg.id);
         p2.onDone(msg.ok === true, msg.message);
+        if (this.pending.size === 0 && this.releaseWhenDrained) this.release();
       }
     }
   }
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
   async tts(text, lang, sid, speed, p2) {
     if (!await this.ensure() || this.handle == null) return null;
+    this.releaseWhenDrained = false;
     const id = this.nextId++;
     this.pending.set(id, p2);
     try {
@@ -41363,6 +41382,13 @@ var VtubeTtsEngine = class {
     this.emit({ kind: "subtitle", text: "" });
     this.emit({ kind: "state" });
   }
+  /** 엔진 자원 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 자격을 잃은
+   *  소비자(narrator 상실·vtube 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
+   *  발화 중이면 큐 소화 후 내려가고, 다음 say 가 lazy 재기동한다. */
+  releaseTts() {
+    this.sidecar.release();
+    this.emit({ kind: "state" });
+  }
   dispose() {
     this.speech.cancel();
     this.sidecar.dispose();
@@ -41523,6 +41549,17 @@ function registerCommands(ctx, engine2, mascot2) {
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
     handler: async () => {
       await engine2.stop();
+      return { ok: true };
+    }
+  });
+  reg("release", {
+    tts: false,
+    trace: false,
+    // 자원 관리 부산물 — 관찰은 활동을 낳지 않는다(§5)
+    description: "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this \u2014 engine lifetime follows speaking rights.",
+    triggers: { ko: "\uC5D4\uC9C4 \uBC18\uB0A9 \uC790\uC6D0 \uD574\uC81C \uC0AC\uC774\uB4DC\uCE74 \uB0B4\uB9AC\uAE30" },
+    handler: () => {
+      engine2.releaseTts();
       return { ok: true };
     }
   });

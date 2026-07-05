@@ -92,6 +92,18 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
     },
   });
 
+  reg("release", {
+    tts: false,
+    trace: false, // 자원 관리 부산물 — 관찰은 활동을 낳지 않는다(§5)
+    description:
+      "Release engine resources (unloads the speech sidecar; the model reloads lazily on the next say). Callers that lose speaking rights (narrator handoff, vtube off) call this — engine lifetime follows speaking rights.",
+    triggers: { ko: "엔진 반납 자원 해제 사이드카 내리기" },
+    handler: () => {
+      engine.releaseTts();
+      return { ok: true };
+    },
+  });
+
   reg("cubism.install", {
     description:
       "Download and cache the proprietary Live2D Cubism Core runtime from the official CDN. Requires accept=true (license consent).",

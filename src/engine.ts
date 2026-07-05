@@ -319,6 +319,14 @@ export class VtubeTtsEngine {
     this.emit({ kind: "state" });
   }
 
+  /** 엔진 자원 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 자격을 잃은
+   *  소비자(narrator 상실·vtube 끔)가 호출하면 사이드카(모델 상주 프로세스)를 내린다.
+   *  발화 중이면 큐 소화 후 내려가고, 다음 say 가 lazy 재기동한다. */
+  releaseTts(): void {
+    this.sidecar.release();
+    this.emit({ kind: "state" });
+  }
+
   dispose(): void {
     this.speech.cancel();
     this.sidecar.dispose();

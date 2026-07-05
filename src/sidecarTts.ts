@@ -54,6 +54,23 @@ class SpeechSidecarProc {
     this.subs = [];
     this.handle = null;
     this.buf = "";
+    this.releaseWhenDrained = false;
+  }
+
+  // 엔진 반납 — 규칙: 엔진의 생존은 발화 자격과 함께 간다(단일 낭독자). 모델을 든 상주
+  // 프로세스는 창마다 수백 MB(실측: 5창 상주 = ~2.9GB → 웹뷰 boot OOM) — 자격을 잃은 창
+  // (narrator 상실·vtube 끔)이 즉시 반납한다. 발화 중이면 큐를 소화한 뒤 내린다.
+  // 다음 자격 창의 첫 say 가 lazy 재기동(시간 휴리스틱 없음 — 자격 전이가 수명을 결정).
+  private releaseWhenDrained = false;
+  release(): void {
+    if (this.handle == null) return;
+    if (this.pending.size > 0) {
+      this.releaseWhenDrained = true;
+      return;
+    }
+    const h = this.handle;
+    this.teardown();
+    void this.app.process?.kill(h).catch(() => {});
   }
 
   async ensure(): Promise<boolean> {
@@ -138,6 +155,8 @@ class SpeechSidecarProc {
       if (msg.done === true || msg.ok === false) {
         this.pending.delete(msg.id);
         p.onDone(msg.ok === true, msg.message);
+        // 반납 보류 중이었으면 큐가 빈 지금 내린다(자격 상실 시점의 발화는 끝까지 존중).
+        if (this.pending.size === 0 && this.releaseWhenDrained) this.release();
       }
     }
   }
@@ -145,6 +164,7 @@ class SpeechSidecarProc {
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
   async tts(text: string, lang: string, sid: number, speed: number, p: Pending): Promise<number | null> {
     if (!(await this.ensure()) || this.handle == null) return null;
+    this.releaseWhenDrained = false; // 새 발화 = 자격 유효 — 반납 보류 해제
     const id = this.nextId++;
     this.pending.set(id, p);
     try {

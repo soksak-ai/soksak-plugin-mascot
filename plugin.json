@@ -167,6 +167,13 @@
         }
       },
       {
+        "name": "release",
+        "title": {
+          "en": "Releases engine resources",
+          "ko": "엔진 자원을 반납합니다"
+        }
+      },
+      {
         "name": "stop",
         "title": {
           "en": "Stops speech and the current turn",
