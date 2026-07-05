@@ -179,6 +179,7 @@ export class SidecarTts implements TtsEngine {
   private analyser: AnalyserNode | null = null;
   private playing = new Set<AudioBufferSourceNode>();
   private raf = 0;
+  private peak = 0.04; // 러닝 피크(감쇠 0.995/frame) — 레벨 정규화 기준
   private curReq: number | null = null;
 
   constructor(
@@ -232,8 +233,10 @@ export class SidecarTts implements TtsEngine {
         const d = (data[i] - 128) / 128;
         sum += d * d;
       }
-      // RMS → 입 벌림(0..1). 0.35 나눗셈 = 말소리 RMS 대역을 풀스케일로 늘리는 정규화.
-      this.onLevel(Math.min(1, Math.sqrt(sum / data.length) / 0.35));
+      // RMS → 러닝 피크 정규화(0..1) — 고정 상수 나눗셈은 조용한 음성에서 값이 죽는다.
+      const rms = Math.sqrt(sum / data.length);
+      this.peak = Math.max(this.peak * 0.995, rms, 0.04);
+      this.onLevel(Math.min(1, rms / this.peak));
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);

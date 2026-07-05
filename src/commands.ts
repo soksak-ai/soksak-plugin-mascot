@@ -47,12 +47,14 @@ export function registerCommands(ctx: PluginCtx, engine: VtuberEngine, mascot: M
       const probe = p.probe === true ? await engine.renderer.probePixels() : undefined;
       const png = p.png === true ? await engine.renderer.probePng() : undefined;
       const voices = p.voices === true ? engine.listVoices() : undefined;
+      const mouth = p.probe === true ? engine.renderer.mouthDiag() : undefined;
       return {
         ok: true,
         ...st,
         ...(probe !== undefined ? { probe } : {}),
         ...(png !== undefined ? { png } : {}),
         ...(voices !== undefined ? { voices } : {}),
+        ...(mouth !== undefined ? { mouth } : {}),
       };
     },
   });

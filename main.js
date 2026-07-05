@@ -40369,7 +40369,7 @@ async function loadLive2dLib() {
   return live2dLib;
 }
 window.PIXI = lib_exports2;
-var MOUTH_PARAM = "ParamMouthOpenY";
+var MOUTH_PARAM_FALLBACK = "ParamMouthOpenY";
 var Live2DRenderer = class {
   constructor(app) {
     this.app = app;
@@ -40386,6 +40386,8 @@ var Live2DRenderer = class {
   mouthLevel = null;
   // 실측 진폭(사이드카) — null 이면 의사 파형 모드
   mouthSmooth = 0;
+  lipSyncIds = [MOUTH_PARAM_FALLBACK];
+  // 모델 LipSync 그룹에서 로드 시 갱신
   urlCache = /* @__PURE__ */ new Map();
   info = null;
   onVisibility = () => {
@@ -40469,6 +40471,9 @@ var Live2DRenderer = class {
       throw new Error("not a Cubism 3+ model (.model3.json with FileReferences.Moc required)");
     }
     const dir = modelPath.replace(/\/[^/]*$/, "");
+    const groups = json.Groups ?? [];
+    const lip = groups.find((g2) => g2.Name === "LipSync");
+    this.lipSyncIds = lip?.Ids?.length ? lip.Ids : [MOUTH_PARAM_FALLBACK];
     const settings2 = new Cubism4ModelSettings2({ ...json, url: modelPath });
     const files = settings2.getDefinedFiles();
     const map4 = /* @__PURE__ */ new Map();
@@ -40501,48 +40506,69 @@ var Live2DRenderer = class {
   }
   unloadModel() {
     if (!this.model) return;
+    this.unhookMouth();
     this.model.destroy();
     this.model = null;
     this.info = null;
   }
-  /** 모션 업데이트 뒤에 입 파라미터를 덮어써 의사 립싱크(M1). M2a 에서 실측 진폭으로 교체. */
+  /** 입 구동 — 포크 InternalModel 의 beforeModelUpdate 이벤트(이펙트 이후·변형 계산 직전)에서
+   *  motionManager.lipSyncIds(모델 LipSync 그룹의 진짜 id 핸들)로 절대값을 쓴다.
+   *  이 지점 밖의 쓰기는 프레임워크 save/load 사이클이 매 프레임 복원해 무효였다. */
+  mouthHandler = null;
+  lastMouthWrite = 0;
+  // 이번 프레임에 실제 쓴 값 — raw 읽기는 loadParameters 복원 때문에 항상 0
+  mouthModel = null;
   hookMouth(model) {
-    const mm = model.internalModel.motionManager;
-    if (!mm?.update) return;
-    const orig = mm.update.bind(mm);
+    this.unhookMouth();
+    const im = model.internalModel;
+    const core = im?.coreModel;
+    const lipIds = im?.motionManager?.lipSyncIds ?? [];
+    if (!core?.setParameterValueById || lipIds.length === 0) {
+      console.warn("[vtuber] lipSyncIds unavailable \u2014 lip sync disabled");
+      return;
+    }
     const self2 = this;
-    mm.update = function(coreModel, now) {
-      const r2 = orig(coreModel, now);
-      const set = coreModel?.setParameterValueById;
-      if (typeof set !== "function") return r2;
+    this.mouthHandler = () => {
+      let v2 = null;
       if (self2.mouthLevel != null) {
         self2.mouthSmooth += (self2.mouthLevel - self2.mouthSmooth) * 0.35;
-        set.call(coreModel, MOUTH_PARAM, Math.max(0, Math.min(1, self2.mouthSmooth)));
+        v2 = Math.max(0, Math.min(1, self2.mouthSmooth));
       } else if (self2.mouthOn) {
         const t2 = performance.now() / 1e3;
-        const v2 = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t2 * 9.1) + 0.2 * Math.sin(t2 * 23.7)));
-        set.call(coreModel, MOUTH_PARAM, v2);
+        v2 = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t2 * 9.1) + 0.2 * Math.sin(t2 * 23.7)));
       }
-      return r2;
+      if (v2 != null) {
+        const mapped = v2 < 0.04 ? 0 : Math.min(1, 0.4 + 0.7 * v2);
+        self2.lastMouthWrite = mapped;
+        for (const id of lipIds) core.setParameterValueById(id, mapped);
+      }
     };
+    im.on("beforeModelUpdate", this.mouthHandler);
+    this.mouthModel = model;
+  }
+  unhookMouth() {
+    if (this.mouthHandler && this.mouthModel) {
+      this.mouthModel.internalModel?.off?.("beforeModelUpdate", this.mouthHandler);
+    }
+    this.mouthHandler = null;
+    this.mouthModel = null;
   }
   setMouth(on) {
     this.mouthOn = on;
-    if (!on && this.mouthLevel == null && this.model) {
-      const core = this.model.internalModel.coreModel;
-      core?.setParameterValueById?.(MOUTH_PARAM, 0);
-    }
+    if (!on && this.mouthLevel == null) this.writeMouthRaw(0);
   }
   /** 실측 진폭 입모양(0..1). null = 실측 모드 해제(의사 파형/무음으로 복귀). */
   setMouthLevel(v2) {
     this.mouthLevel = v2;
     if (v2 == null) {
       this.mouthSmooth = 0;
-      if (this.model && !this.mouthOn) {
-        const core = this.model.internalModel.coreModel;
-        core?.setParameterValueById?.(MOUTH_PARAM, 0);
-      }
+      if (!this.mouthOn) this.writeMouthRaw(0);
     }
+  }
+  writeMouthRaw(v2) {
+    const im = this.model?.internalModel;
+    const core = im?.coreModel;
+    for (const id of im?.motionManager?.lipSyncIds ?? []) core?.setParameterValueById?.(id, v2);
   }
   /** 표정 적용 — "neutral" 은 표정 리셋. 알려진 표정 Name/인덱스만 적용. */
   async setExpression(name) {
@@ -40597,6 +40623,30 @@ var Live2DRenderer = class {
   async probePng() {
     if (!this.pixi) return null;
     return await this.pixi.renderer.extract.base64(this.pixi.stage, "image/png");
+  }
+  /** 입 파라미터 진단 — raw core 의 파라미터 id/현재값(문자열 id 세팅이 실제 반영되는지 판별). */
+  mouthDiag() {
+    const out = [];
+    const core = this.model?.internalModel?.coreModel;
+    const raw = core?._model ?? core?.model;
+    const ids = raw?.parameters?.ids;
+    const values = raw?.parameters?.values;
+    if (ids && values) {
+      ids.forEach((id, i2) => {
+        if (/mouth/i.test(id)) out.push({ id, value: Number(values[i2]?.toFixed?.(3) ?? values[i2]) });
+      });
+    }
+    const lip = this.lipSyncIds.map((id) => {
+      const i2 = ids?.indexOf(id) ?? -1;
+      return { id, value: i2 >= 0 && values ? Number(values[i2]?.toFixed?.(3) ?? values[i2]) : null };
+    });
+    return {
+      ids: out,
+      lipSync: lip,
+      mouthLevel: this.mouthLevel,
+      smooth: Number(this.mouthSmooth.toFixed(3)),
+      lastWrite: Number(this.lastMouthWrite.toFixed(3))
+    };
   }
   /** 진단 스냅샷 — E2E/디버그용(state 커맨드에 노출). */
   stats() {
@@ -40934,6 +40984,8 @@ var SidecarTts = class {
   analyser = null;
   playing = /* @__PURE__ */ new Set();
   raf = 0;
+  peak = 0.04;
+  // 러닝 피크(감쇠 0.995/frame) — 레벨 정규화 기준
   curReq = null;
   available() {
     return this.proc.configured();
@@ -40968,7 +41020,9 @@ var SidecarTts = class {
         const d2 = (data[i2] - 128) / 128;
         sum += d2 * d2;
       }
-      this.onLevel(Math.min(1, Math.sqrt(sum / data.length) / 0.35));
+      const rms = Math.sqrt(sum / data.length);
+      this.peak = Math.max(this.peak * 0.995, rms, 0.04);
+      this.onLevel(Math.min(1, rms / this.peak));
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);
@@ -42001,12 +42055,14 @@ function registerCommands(ctx, engine2, mascot2) {
       const probe = p3.probe === true ? await engine2.renderer.probePixels() : void 0;
       const png = p3.png === true ? await engine2.renderer.probePng() : void 0;
       const voices = p3.voices === true ? engine2.listVoices() : void 0;
+      const mouth = p3.probe === true ? engine2.renderer.mouthDiag() : void 0;
       return {
         ok: true,
         ...st,
         ...probe !== void 0 ? { probe } : {},
         ...png !== void 0 ? { png } : {},
-        ...voices !== void 0 ? { voices } : {}
+        ...voices !== void 0 ? { voices } : {},
+        ...mouth !== void 0 ? { mouth } : {}
       };
     }
   });

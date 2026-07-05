@@ -25,7 +25,9 @@ async function loadLive2dLib(): Promise<Live2dLib> {
 // 다른 플러그인의 pixi 와 충돌하지 않는다. 코어는 pixi 를 전역에 두지 않음).
 (window as unknown as { PIXI: unknown }).PIXI = PIXI;
 
-const MOUTH_PARAM = "ParamMouthOpenY"; // Cubism 표준 입 파라미터(대부분의 모델). 상이 모델은 README 참조.
+// 입 파라미터의 단일진실 = model3.json Groups 의 LipSync 선언(모델마다 다르다 — 표준
+// ParamMouthOpenY, mao_pro 는 ParamA). 미선언 모델만 표준 id 폴백.
+const MOUTH_PARAM_FALLBACK = "ParamMouthOpenY";
 
 export interface LoadedModelInfo {
   path: string;
@@ -42,6 +44,7 @@ export class Live2DRenderer {
   private mouthOn = false;
   private mouthLevel: number | null = null; // 실측 진폭(사이드카) — null 이면 의사 파형 모드
   private mouthSmooth = 0;
+  private lipSyncIds: string[] = [MOUTH_PARAM_FALLBACK]; // 모델 LipSync 그룹에서 로드 시 갱신
   private urlCache = new Map<string, string>();
   info: LoadedModelInfo | null = null;
 
@@ -140,6 +143,9 @@ export class Live2DRenderer {
       throw new Error("not a Cubism 3+ model (.model3.json with FileReferences.Moc required)");
     }
     const dir = modelPath.replace(/\/[^/]*$/, "");
+    const groups = (json.Groups ?? []) as Array<{ Name?: string; Ids?: string[] }>;
+    const lip = groups.find((g) => g.Name === "LipSync");
+    this.lipSyncIds = lip?.Ids?.length ? lip.Ids : [MOUTH_PARAM_FALLBACK];
     const settings = new Cubism4ModelSettings({ ...json, url: modelPath });
     const files = settings.getDefinedFiles();
     const map = new Map<string, string>();
@@ -179,41 +185,63 @@ export class Live2DRenderer {
 
   unloadModel(): void {
     if (!this.model) return;
+    this.unhookMouth();
     this.model.destroy();
     this.model = null;
     this.info = null;
   }
 
-  /** 모션 업데이트 뒤에 입 파라미터를 덮어써 의사 립싱크(M1). M2a 에서 실측 진폭으로 교체. */
+  /** 입 구동 — 포크 InternalModel 의 beforeModelUpdate 이벤트(이펙트 이후·변형 계산 직전)에서
+   *  motionManager.lipSyncIds(모델 LipSync 그룹의 진짜 id 핸들)로 절대값을 쓴다.
+   *  이 지점 밖의 쓰기는 프레임워크 save/load 사이클이 매 프레임 복원해 무효였다. */
+  private mouthHandler: (() => void) | null = null;
+  lastMouthWrite = 0; // 이번 프레임에 실제 쓴 값 — raw 읽기는 loadParameters 복원 때문에 항상 0
+  private mouthModel: Live2DModel | null = null;
+
   private hookMouth(model: Live2DModel): void {
-    const mm = (model.internalModel as { motionManager?: { update?: Function } }).motionManager;
-    if (!mm?.update) return;
-    const orig = (mm.update as Function).bind(mm);
+    this.unhookMouth();
+    const im = model.internalModel as any;
+    const core = im?.coreModel;
+    const lipIds: unknown[] = im?.motionManager?.lipSyncIds ?? [];
+    if (!core?.setParameterValueById || lipIds.length === 0) {
+      console.warn("[vtuber] lipSyncIds unavailable — lip sync disabled");
+      return;
+    }
     const self = this;
-    mm.update = function (coreModel: unknown, now: number) {
-      const r = orig(coreModel, now);
-      const set = (coreModel as any)?.setParameterValueById;
-      if (typeof set !== "function") return r;
+    this.mouthHandler = () => {
+      let v: number | null = null;
       if (self.mouthLevel != null) {
         // 실측 진폭(사이드카 재생) — 저역 통과로 떨림 완화
         self.mouthSmooth += (self.mouthLevel - self.mouthSmooth) * 0.35;
-        set.call(coreModel, MOUTH_PARAM, Math.max(0, Math.min(1, self.mouthSmooth)));
+        v = Math.max(0, Math.min(1, self.mouthSmooth));
       } else if (self.mouthOn) {
         const t = performance.now() / 1000;
-        // 두 사인 합성 + 클램프 — 무작위 대신 결정적 파형(부드럽고 재현 가능). OS TTS 폴백용.
-        const v = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t * 9.1) + 0.2 * Math.sin(t * 23.7)));
-        set.call(coreModel, MOUTH_PARAM, v);
+        // 두 사인 합성 + 클램프 — 결정적 파형(부드럽고 재현 가능). OS TTS 폴백용.
+        v = Math.max(0, Math.min(1, 0.42 + 0.38 * Math.sin(t * 9.1) + 0.2 * Math.sin(t * 23.7)));
       }
-      return r;
+      if (v != null) {
+        // 라이브러리 자체 립싱크와 동일한 가시성 매핑(min 0.4 바닥) — 말소리 RMS 절대값은
+        // 0.1~0.2 라 그대로 쓰면 입이 거의 안 벌어져 보인다(cubism4.es.js:10883 동일 처방).
+        const mapped = v < 0.04 ? 0 : Math.min(1, 0.4 + 0.7 * v);
+        self.lastMouthWrite = mapped;
+        for (const id of lipIds) core.setParameterValueById(id, mapped);
+      }
     };
+    im.on("beforeModelUpdate", this.mouthHandler);
+    this.mouthModel = model;
+  }
+
+  private unhookMouth(): void {
+    if (this.mouthHandler && this.mouthModel) {
+      (this.mouthModel.internalModel as any)?.off?.("beforeModelUpdate", this.mouthHandler);
+    }
+    this.mouthHandler = null;
+    this.mouthModel = null;
   }
 
   setMouth(on: boolean): void {
     this.mouthOn = on;
-    if (!on && this.mouthLevel == null && this.model) {
-      const core = (this.model.internalModel as { coreModel?: any }).coreModel;
-      core?.setParameterValueById?.(MOUTH_PARAM, 0);
-    }
+    if (!on && this.mouthLevel == null) this.writeMouthRaw(0);
   }
 
   /** 실측 진폭 입모양(0..1). null = 실측 모드 해제(의사 파형/무음으로 복귀). */
@@ -221,11 +249,14 @@ export class Live2DRenderer {
     this.mouthLevel = v;
     if (v == null) {
       this.mouthSmooth = 0;
-      if (this.model && !this.mouthOn) {
-        const core = (this.model.internalModel as { coreModel?: any }).coreModel;
-        core?.setParameterValueById?.(MOUTH_PARAM, 0);
-      }
+      if (!this.mouthOn) this.writeMouthRaw(0);
     }
+  }
+
+  private writeMouthRaw(v: number): void {
+    const im = this.model?.internalModel as any;
+    const core = im?.coreModel;
+    for (const id of im?.motionManager?.lipSyncIds ?? []) core?.setParameterValueById?.(id, v);
   }
 
   /** 표정 적용 — "neutral" 은 표정 리셋. 알려진 표정 Name/인덱스만 적용. */
@@ -284,6 +315,37 @@ export class Live2DRenderer {
   async probePng(): Promise<string | null> {
     if (!this.pixi) return null;
     return await (this.pixi.renderer as any).extract.base64(this.pixi.stage, "image/png");
+  }
+
+  /** 입 파라미터 진단 — raw core 의 파라미터 id/현재값(문자열 id 세팅이 실제 반영되는지 판별). */
+  mouthDiag(): {
+    ids: Array<{ id: string; value: number }>;
+    lipSync: Array<{ id: string; value: number | null }>;
+    mouthLevel: number | null;
+    smooth: number;
+    lastWrite: number;
+  } {
+    const out: Array<{ id: string; value: number }> = [];
+    const core = (this.model?.internalModel as any)?.coreModel;
+    const raw = core?._model ?? core?.model; // framework CubismModel 내부의 raw core 모델
+    const ids: string[] | undefined = raw?.parameters?.ids;
+    const values: Float32Array | number[] | undefined = raw?.parameters?.values;
+    if (ids && values) {
+      ids.forEach((id, i) => {
+        if (/mouth/i.test(id)) out.push({ id, value: Number((values as any)[i]?.toFixed?.(3) ?? values[i]) });
+      });
+    }
+    const lip = this.lipSyncIds.map((id) => {
+      const i = ids?.indexOf(id) ?? -1;
+      return { id, value: i >= 0 && values ? Number((values as any)[i]?.toFixed?.(3) ?? values[i]) : null };
+    });
+    return {
+      ids: out,
+      lipSync: lip,
+      mouthLevel: this.mouthLevel,
+      smooth: Number(this.mouthSmooth.toFixed(3)),
+      lastWrite: Number(this.lastMouthWrite.toFixed(3)),
+    };
   }
 
   /** 진단 스냅샷 — E2E/디버그용(state 커맨드에 노출). */
