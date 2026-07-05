@@ -41611,6 +41611,8 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("mascot.toggle", {
+    tts: false,
+    // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB9C8\uC2A4\uCF54\uD2B8 \uD654\uBA74 \uC624\uBC84\uB808\uC774 \uCF1C\uAE30 \uB044\uAE30" },
     params: {
@@ -41625,6 +41627,8 @@ function registerCommands(ctx, engine2, mascot2) {
     }
   });
   reg("tts.toggle", {
+    tts: false,
+    // 표시 제어 계열
     description: "Toggle speech output (subtitles always shown).",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uC74C\uC131 \uCD9C\uB825 \uCF1C\uAE30 \uB044\uAE30 \uD1A0\uAE00" },
     params: {

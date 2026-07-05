@@ -194,6 +194,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("mascot.toggle", {
+    tts: false, // 표시 제어 계열 — 낭독 기계의 자기 조작은 읽지 않는다(say/stop 과 같은 가족)
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
     triggers: { ko: "브이튜브 마스코트 화면 오버레이 켜기 끄기" },
     params: {
@@ -209,6 +210,7 @@ export function registerCommands(ctx: PluginCtx, engine: VtubeTtsEngine, mascot:
   });
 
   reg("tts.toggle", {
+    tts: false, // 표시 제어 계열
     description: "Toggle speech output (subtitles always shown).",
     triggers: { ko: "브이튜브 음성 출력 켜기 끄기 토글" },
     params: {
