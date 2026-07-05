@@ -91,7 +91,7 @@
     {
       "key": "speechEngine",
       "type": "enum",
-      "default": "vits",
+      "default": "supertonic",
       "enum": [
         "vits",
         "kokoro",
