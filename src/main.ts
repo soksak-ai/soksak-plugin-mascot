@@ -5,6 +5,7 @@ import type { PluginCtx } from "@/types";
 import { VtuberEngine } from "@/engine";
 import { MascotOverlay } from "@/mascot";
 import { mountPanel, unmountPanel } from "@/panelView";
+import { mountActivity, unmountActivity } from "@/activityView";
 import { registerCommands } from "@/commands";
 
 let engine: VtuberEngine | null = null;
@@ -31,6 +32,14 @@ export default {
         },
         unmount(container) {
           unmountPanel(container);
+        },
+      }),
+      app.ui.registerView("activity", {
+        mount(container, viewCtx) {
+          if (engine) mountActivity(container, viewCtx, engine);
+        },
+        unmount(container) {
+          unmountActivity(container);
         },
       }),
     );

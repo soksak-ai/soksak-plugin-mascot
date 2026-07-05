@@ -66,15 +66,16 @@ export function mountPanel(container: HTMLElement, viewCtx: ViewCtx, engine: Vtu
   function renderStage(): void {
     const st = engine.state();
     stageEmpty.replaceChildren();
-    if (st.model && !st.mascot) {
+    const at = engine.characterAt();
+    if (st.model && at === "panel") {
       stageEmpty.style.display = "none";
       engine.renderer.attach(stage);
       return;
     }
     engine.renderer.detach(stage);
     stageEmpty.style.display = "flex";
-    if (st.mascot && st.model) {
-      stageEmpty.textContent = t("mascotHolds");
+    if (st.model && at !== "panel") {
+      stageEmpty.textContent = at === "mascot" ? t("mascotHolds") : t("sidebarHolds");
       return;
     }
     const card = el("div", "vt-card");

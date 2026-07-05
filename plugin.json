@@ -21,7 +21,9 @@
     "network",
     "data",
     "notify",
-    "fs:read"
+    "fs:read",
+    "terminal",
+    "terminal:read"
   ],
   "dependencies": {
     "soksak-plugin-agents-acp": "^0.1.0"
@@ -202,6 +204,51 @@
         "en": "1 = model default.",
         "ko": "1 = 모델 기본 속도."
       }
+    },
+    {
+      "key": "activityDisplay",
+      "type": "enum",
+      "default": "text-character",
+      "enum": [
+        "text-character",
+        "character",
+        "text"
+      ],
+      "enumLabels": [
+        {
+          "en": "Text + character",
+          "ko": "텍스트 + 캐릭터"
+        },
+        {
+          "en": "Character only",
+          "ko": "캐릭터만"
+        },
+        {
+          "en": "Text only",
+          "ko": "텍스트만"
+        }
+      ],
+      "title": {
+        "en": "Activity view",
+        "ko": "활동 뷰 표시"
+      },
+      "description": {
+        "en": "What the activity sidebar shows. The character narrates events aloud either way (see narration toggle).",
+        "ko": "활동 사이드바에 무엇을 표시할지. 낭독 여부는 별도 토글."
+      }
+    },
+    {
+      "key": "activityNarrate",
+      "type": "boolean",
+      "default": true,
+      "title": {
+        "en": "Narrate activity",
+        "ko": "활동 낭독"
+      },
+      "description": {
+        "en": "The character reads terminal/AI events aloud (skips while already speaking).",
+        "ko": "터미널·AI 이벤트를 캐릭터가 소리 내어 읽는다(이미 말하는 중이면 건너뜀)."
+      }
     }
   ],
   "contributes": {
@@ -217,6 +264,19 @@
           "content"
         ],
         "defaultPlacement": "content"
+      },
+      {
+        "id": "activity",
+        "title": {
+          "en": "VTuber Activity",
+          "ko": "브이튜버 활동"
+        },
+        "icon": "📻",
+        "placements": [
+          "sidebar-left",
+          "sidebar-right"
+        ],
+        "defaultPlacement": "sidebar-left"
       }
     ],
     "programs": [
