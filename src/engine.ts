@@ -1,4 +1,4 @@
-// vtuber 엔진 — 설정·렌더러·TTS 큐·acp 를 한 곳에서 소유. 뷰(패널/마스코트)와 커맨드는 전부
+// vtube-tts 엔진 — 설정·렌더러·TTS 큐·acp 를 한 곳에서 소유. 뷰(패널/마스코트)와 커맨드는 전부
 // 이 엔진의 같은 오퍼레이션을 호출한다(표면≡커맨드 등가 — CLI 자가검증 원칙).
 // 뷰 갱신은 얇은 로컬 이벤트로 브로드캐스트(교차창 상태 아님 — 창-로컬 UI 반영용).
 import type { HostApp, Utterance } from "@/types";
@@ -6,9 +6,7 @@ import { SettingsStore } from "@/settings";
 import { Live2DRenderer, type LoadedModelInfo } from "@/renderer";
 import { SpeechQueue, SpeechSynthesisTts, type TtsEngine } from "@/tts";
 import { SidecarTts } from "@/sidecarTts";
-import { AcpChat } from "@/acp";
-import { ClaudeCliChat } from "@/claudeCli";
-import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion, personaPreamble } from "@/pipeline";
+import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion } from "@/pipeline";
 import * as cubism from "@/cubism";
 
 export interface ChatEntry {
@@ -21,17 +19,14 @@ export type EngineEvent =
   | { kind: "subtitle"; text: string }
   | { kind: "state" }; // 모델/마스코트/음성/busy 등 상태 변화 — 뷰는 state() 재조회
 
-export class VtuberEngine {
+export class VtubeTtsEngine {
   readonly settings: SettingsStore;
   readonly renderer: Live2DRenderer;
   private tts!: SpeechSynthesisTts;
   private sidecar!: SidecarTts;
   private speech: SpeechQueue;
-  private acp: AcpChat;
-  private claudeCli!: ClaudeCliChat;
   private listeners = new Set<(e: EngineEvent) => void>();
   private chatLog: ChatEntry[] = [];
-  private turnBusy = false;
   lang: string;
 
   constructor(
@@ -41,16 +36,6 @@ export class VtuberEngine {
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
-    this.acp = new AcpChat(
-      app,
-      () => this.agentSetting(),
-      () => this.agentModelSetting(),
-    );
-    // claude-bare 의 모델 — agentModel 이 claude 계열일 때만 통과(다른 에이전트용 id 혼입 방지).
-    this.claudeCli = new ClaudeCliChat(app, () => {
-      const m = this.agentModelSetting();
-      return /haiku|sonnet|opus|fable|^claude/i.test(m) ? m : "";
-    });
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v = this.app.settings.get("voiceName");
@@ -135,21 +120,6 @@ export class VtuberEngine {
     return typeof v === "string" ? v.trim() : "";
   }
 
-  private agentSetting(): string {
-    const v = this.app.settings.get("agent");
-    return v === "codex" || v === "gemini" || v === "claude-bare" ? v : "claude";
-  }
-
-  /** 대화 백엔드 — claude-bare = claude -p 직행(즉답), 그 외 = acp-core. */
-  private chatBackend(): AcpChat | ClaudeCliChat {
-    return this.agentSetting() === "claude-bare" ? this.claudeCli : this.acp;
-  }
-
-  private agentModelSetting(): string {
-    const v = this.app.settings.get("agentModel");
-    return typeof v === "string" ? v.trim() : "";
-  }
-
   /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 패널. */
   characterAt(): "mascot" | "panel" {
     return this.settings.get().mascotOn ? "mascot" : "panel";
@@ -170,17 +140,8 @@ export class VtuberEngine {
       }
     }
 
-    // 설정 변경 감시 — modelPath 는 캐릭터 라이브 교체, agent/모델은 연결 폐기(다음 턴에 재연결).
-    let lastAgent = this.agentSetting() + "|" + this.agentModelSetting();
+    // 설정 변경 감시 — modelPath 변경 = 캐릭터 라이브 교체.
     this.app.settings.onChange(() => {
-      const agent = this.agentSetting() + "|" + this.agentModelSetting();
-      if (agent !== lastAgent) {
-        lastAgent = agent;
-        this.acp.dispose();
-        this.claudeCli.dispose();
-        this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
-        this.emit({ kind: "state" });
-      }
       const next = this.configuredModelPath();
       if (!next || next === this.renderer.info?.path) return;
       void this.loadModel(next).catch((e) => this.sys(`model switch failed: ${String(e)}`));
@@ -190,12 +151,12 @@ export class VtuberEngine {
   private async persistModelPath(path: string): Promise<void> {
     try {
       await this.app.commands.execute("plugin.settings.set", {
-        id: "soksak-plugin-vtuber",
+        id: "soksak-plugin-vtube-tts",
         key: "modelPath",
         value: path,
       });
     } catch (e) {
-      console.error("[vtuber] modelPath 설정 저장 실패:", e);
+      console.error("[vtube-tts] modelPath 설정 저장 실패:", e);
     }
   }
 
@@ -239,8 +200,6 @@ export class VtuberEngine {
       sidecarRunning: this.sidecar.running(),
       sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
-      busy: this.turnBusy,
-      agentConnected: this.chatBackend().connected(),
       lang: this.lang,
       renderer: this.renderer.stats(),
     };
@@ -353,73 +312,9 @@ export class VtuberEngine {
     return utterances;
   }
 
-  /** 한 대화 턴 — 에이전트 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답+타이밍 반환.
-   *  timing.firstSentenceMs ≈ turnMs 이면 에이전트가 델타를 통짜로 보낸 것(파이프라인 지연 아님). */
-  async chat(
-    text: string,
-  ): Promise<{
-    reply: string;
-    utterances: Utterance[];
-    timing: {
-      turnMs: number;
-      firstSentenceMs: number | null;
-      deltas: number;
-      firstDeltaMs: number | null;
-      lastDeltaMs: number | null;
-    };
-  }> {
-    if (this.turnBusy) throw new Error("turn already in flight");
-    this.turnBusy = true;
-    this.emit({ kind: "state" });
-    this.pushChat({ who: "user", text });
-    const t0 = performance.now();
-    let firstSentenceMs: number | null = null;
-    const utterances: Utterance[] = [];
-    const seg = new StreamSegmenter((sentence) => {
-      const u = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u.speak) {
-        if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
-        utterances.push(u);
-        this.speech.enqueue(u);
-        if (u.text) this.pushChat({ who: "char", text: u.text });
-      }
-    });
-    try {
-      const r = await this.chatBackend().ask(text, personaPreamble(DEFAULT_EMOTIONS), (delta) =>
-        seg.feed(delta),
-      );
-      seg.flush();
-      // 스트리밍이 전혀 안 왔는데 최종 텍스트만 있는 경우(에이전트별 편차) — 최종본을 발화.
-      if (utterances.length === 0 && r.text) {
-        for (const u of this.speakText(r.text)) {
-          utterances.push(u);
-          this.pushChat({ who: "char", text: u.text });
-        }
-      }
-      const reply = utterances.map((u) => u.text).join(" ");
-      return {
-        reply,
-        utterances,
-        timing: {
-          turnMs: Math.round(performance.now() - t0),
-          firstSentenceMs,
-          ...r.stream, // deltas/firstDeltaMs/lastDeltaMs — 에이전트 스트리밍 형태 판별
-        },
-      };
-    } catch (e) {
-      this.sys(`${String(e)}`);
-      throw e;
-    } finally {
-      this.turnBusy = false;
-      this.emit({ kind: "state" });
-    }
-  }
-
   async stop(): Promise<void> {
     this.speech.cancel();
     this.renderer.setMouth(false);
-    await this.acp.cancel();
-    await this.claudeCli.cancel();
     this.emit({ kind: "subtitle", text: "" });
     this.emit({ kind: "state" });
   }
@@ -427,8 +322,6 @@ export class VtuberEngine {
   dispose(): void {
     this.speech.cancel();
     this.sidecar.dispose();
-    this.acp.dispose();
-    this.claudeCli.dispose();
     this.renderer.dispose();
     this.listeners.clear();
   }

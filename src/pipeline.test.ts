@@ -1,6 +1,6 @@
 // 파이프라인 순수부 단위 테스트 — 문장 분절(스트리밍 보류 규칙)과 감정 태그 추출.
 import { describe, expect, it } from "vitest";
-import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion, personaPreamble } from "./pipeline";
+import { DEFAULT_EMOTIONS, StreamSegmenter, extractEmotion } from "./pipeline";
 
 describe("extractEmotion", () => {
   it("알려진 태그를 추출하고 본문에서 제거한다", () => {
@@ -74,12 +74,5 @@ describe("표현 태그 분리", () => {
     const u = extractEmotion("코드에 <div> 태그를 쓰세요.", DEFAULT_EMOTIONS);
     expect(u.text).toBe("코드에 <div> 태그를 쓰세요.");
     expect(u.speak).toBe(u.text);
-  });
-});
-
-describe("personaPreamble", () => {
-  it("허용 태그 목록을 포함한다", () => {
-    const p = personaPreamble(DEFAULT_EMOTIONS);
-    for (const e of DEFAULT_EMOTIONS) expect(p).toContain(`[${e}]`);
   });
 });

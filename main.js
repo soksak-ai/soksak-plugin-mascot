@@ -480,18 +480,18 @@ var require_earcut = __commonJS({
     function filterPoints(start, end) {
       if (!start) return start;
       if (!end) end = start;
-      var p3 = start, again;
+      var p2 = start, again;
       do {
         again = false;
-        if (!p3.steiner && (equals(p3, p3.next) || area(p3.prev, p3, p3.next) === 0)) {
-          removeNode(p3);
-          p3 = end = p3.prev;
-          if (p3 === p3.next) break;
+        if (!p2.steiner && (equals(p2, p2.next) || area(p2.prev, p2, p2.next) === 0)) {
+          removeNode(p2);
+          p2 = end = p2.prev;
+          if (p2 === p2.next) break;
           again = true;
         } else {
-          p3 = p3.next;
+          p2 = p2.next;
         }
-      } while (again || p3 !== end);
+      } while (again || p2 !== end);
       return end;
     }
     function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
@@ -529,10 +529,10 @@ var require_earcut = __commonJS({
       if (area(a2, b2, c2) >= 0) return false;
       var ax = a2.x, bx = b2.x, cx = c2.x, ay = a2.y, by = b2.y, cy = c2.y;
       var x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
-      var p3 = c2.next;
-      while (p3 !== a2) {
-        if (p3.x >= x0 && p3.x <= x1 && p3.y >= y0 && p3.y <= y1 && pointInTriangle(ax, ay, bx, by, cx, cy, p3.x, p3.y) && area(p3.prev, p3, p3.next) >= 0) return false;
-        p3 = p3.next;
+      var p2 = c2.next;
+      while (p2 !== a2) {
+        if (p2.x >= x0 && p2.x <= x1 && p2.y >= y0 && p2.y <= y1 && pointInTriangle(ax, ay, bx, by, cx, cy, p2.x, p2.y) && area(p2.prev, p2, p2.next) >= 0) return false;
+        p2 = p2.next;
       }
       return true;
     }
@@ -542,16 +542,16 @@ var require_earcut = __commonJS({
       var ax = a2.x, bx = b2.x, cx = c2.x, ay = a2.y, by = b2.y, cy = c2.y;
       var x0 = ax < bx ? ax < cx ? ax : cx : bx < cx ? bx : cx, y0 = ay < by ? ay < cy ? ay : cy : by < cy ? by : cy, x1 = ax > bx ? ax > cx ? ax : cx : bx > cx ? bx : cx, y1 = ay > by ? ay > cy ? ay : cy : by > cy ? by : cy;
       var minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
-      var p3 = ear.prevZ, n2 = ear.nextZ;
-      while (p3 && p3.z >= minZ && n2 && n2.z <= maxZ) {
-        if (p3.x >= x0 && p3.x <= x1 && p3.y >= y0 && p3.y <= y1 && p3 !== a2 && p3 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, p3.x, p3.y) && area(p3.prev, p3, p3.next) >= 0) return false;
-        p3 = p3.prevZ;
+      var p2 = ear.prevZ, n2 = ear.nextZ;
+      while (p2 && p2.z >= minZ && n2 && n2.z <= maxZ) {
+        if (p2.x >= x0 && p2.x <= x1 && p2.y >= y0 && p2.y <= y1 && p2 !== a2 && p2 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, p2.x, p2.y) && area(p2.prev, p2, p2.next) >= 0) return false;
+        p2 = p2.prevZ;
         if (n2.x >= x0 && n2.x <= x1 && n2.y >= y0 && n2.y <= y1 && n2 !== a2 && n2 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, n2.x, n2.y) && area(n2.prev, n2, n2.next) >= 0) return false;
         n2 = n2.nextZ;
       }
-      while (p3 && p3.z >= minZ) {
-        if (p3.x >= x0 && p3.x <= x1 && p3.y >= y0 && p3.y <= y1 && p3 !== a2 && p3 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, p3.x, p3.y) && area(p3.prev, p3, p3.next) >= 0) return false;
-        p3 = p3.prevZ;
+      while (p2 && p2.z >= minZ) {
+        if (p2.x >= x0 && p2.x <= x1 && p2.y >= y0 && p2.y <= y1 && p2 !== a2 && p2 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, p2.x, p2.y) && area(p2.prev, p2, p2.next) >= 0) return false;
+        p2 = p2.prevZ;
       }
       while (n2 && n2.z <= maxZ) {
         if (n2.x >= x0 && n2.x <= x1 && n2.y >= y0 && n2.y <= y1 && n2 !== a2 && n2 !== c2 && pointInTriangle(ax, ay, bx, by, cx, cy, n2.x, n2.y) && area(n2.prev, n2, n2.next) >= 0) return false;
@@ -560,20 +560,20 @@ var require_earcut = __commonJS({
       return true;
     }
     function cureLocalIntersections(start, triangles, dim) {
-      var p3 = start;
+      var p2 = start;
       do {
-        var a2 = p3.prev, b2 = p3.next.next;
-        if (!equals(a2, b2) && intersects(a2, p3, p3.next, b2) && locallyInside(a2, b2) && locallyInside(b2, a2)) {
+        var a2 = p2.prev, b2 = p2.next.next;
+        if (!equals(a2, b2) && intersects(a2, p2, p2.next, b2) && locallyInside(a2, b2) && locallyInside(b2, a2)) {
           triangles.push(a2.i / dim | 0);
-          triangles.push(p3.i / dim | 0);
+          triangles.push(p2.i / dim | 0);
           triangles.push(b2.i / dim | 0);
-          removeNode(p3);
-          removeNode(p3.next);
-          p3 = start = b2;
+          removeNode(p2);
+          removeNode(p2.next);
+          p2 = start = b2;
         }
-        p3 = p3.next;
-      } while (p3 !== start);
-      return filterPoints(p3);
+        p2 = p2.next;
+      } while (p2 !== start);
+      return filterPoints(p2);
     }
     function splitEarcut(start, triangles, dim, minX, minY, invSize) {
       var a2 = start;
@@ -621,58 +621,58 @@ var require_earcut = __commonJS({
       return filterPoints(bridge, bridge.next);
     }
     function findHoleBridge(hole, outerNode) {
-      var p3 = outerNode, hx = hole.x, hy = hole.y, qx = -Infinity, m2;
+      var p2 = outerNode, hx = hole.x, hy = hole.y, qx = -Infinity, m2;
       do {
-        if (hy <= p3.y && hy >= p3.next.y && p3.next.y !== p3.y) {
-          var x2 = p3.x + (hy - p3.y) * (p3.next.x - p3.x) / (p3.next.y - p3.y);
+        if (hy <= p2.y && hy >= p2.next.y && p2.next.y !== p2.y) {
+          var x2 = p2.x + (hy - p2.y) * (p2.next.x - p2.x) / (p2.next.y - p2.y);
           if (x2 <= hx && x2 > qx) {
             qx = x2;
-            m2 = p3.x < p3.next.x ? p3 : p3.next;
+            m2 = p2.x < p2.next.x ? p2 : p2.next;
             if (x2 === hx) return m2;
           }
         }
-        p3 = p3.next;
-      } while (p3 !== outerNode);
+        p2 = p2.next;
+      } while (p2 !== outerNode);
       if (!m2) return null;
       var stop = m2, mx = m2.x, my = m2.y, tanMin = Infinity, tan;
-      p3 = m2;
+      p2 = m2;
       do {
-        if (hx >= p3.x && p3.x >= mx && hx !== p3.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p3.x, p3.y)) {
-          tan = Math.abs(hy - p3.y) / (hx - p3.x);
-          if (locallyInside(p3, hole) && (tan < tanMin || tan === tanMin && (p3.x > m2.x || p3.x === m2.x && sectorContainsSector(m2, p3)))) {
-            m2 = p3;
+        if (hx >= p2.x && p2.x >= mx && hx !== p2.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p2.x, p2.y)) {
+          tan = Math.abs(hy - p2.y) / (hx - p2.x);
+          if (locallyInside(p2, hole) && (tan < tanMin || tan === tanMin && (p2.x > m2.x || p2.x === m2.x && sectorContainsSector(m2, p2)))) {
+            m2 = p2;
             tanMin = tan;
           }
         }
-        p3 = p3.next;
-      } while (p3 !== stop);
+        p2 = p2.next;
+      } while (p2 !== stop);
       return m2;
     }
-    function sectorContainsSector(m2, p3) {
-      return area(m2.prev, m2, p3.prev) < 0 && area(p3.next, m2, m2.next) < 0;
+    function sectorContainsSector(m2, p2) {
+      return area(m2.prev, m2, p2.prev) < 0 && area(p2.next, m2, m2.next) < 0;
     }
     function indexCurve(start, minX, minY, invSize) {
-      var p3 = start;
+      var p2 = start;
       do {
-        if (p3.z === 0) p3.z = zOrder(p3.x, p3.y, minX, minY, invSize);
-        p3.prevZ = p3.prev;
-        p3.nextZ = p3.next;
-        p3 = p3.next;
-      } while (p3 !== start);
-      p3.prevZ.nextZ = null;
-      p3.prevZ = null;
-      sortLinked(p3);
+        if (p2.z === 0) p2.z = zOrder(p2.x, p2.y, minX, minY, invSize);
+        p2.prevZ = p2.prev;
+        p2.nextZ = p2.next;
+        p2 = p2.next;
+      } while (p2 !== start);
+      p2.prevZ.nextZ = null;
+      p2.prevZ = null;
+      sortLinked(p2);
     }
     function sortLinked(list) {
-      var i2, p3, q, e2, tail, numMerges, pSize, qSize, inSize = 1;
+      var i2, p2, q, e2, tail, numMerges, pSize, qSize, inSize = 1;
       do {
-        p3 = list;
+        p2 = list;
         list = null;
         tail = null;
         numMerges = 0;
-        while (p3) {
+        while (p2) {
           numMerges++;
-          q = p3;
+          q = p2;
           pSize = 0;
           for (i2 = 0; i2 < inSize; i2++) {
             pSize++;
@@ -681,9 +681,9 @@ var require_earcut = __commonJS({
           }
           qSize = inSize;
           while (pSize > 0 || qSize > 0 && q) {
-            if (pSize !== 0 && (qSize === 0 || !q || p3.z <= q.z)) {
-              e2 = p3;
-              p3 = p3.nextZ;
+            if (pSize !== 0 && (qSize === 0 || !q || p2.z <= q.z)) {
+              e2 = p2;
+              p2 = p2.nextZ;
               pSize--;
             } else {
               e2 = q;
@@ -695,7 +695,7 @@ var require_earcut = __commonJS({
             e2.prevZ = tail;
             tail = e2;
           }
-          p3 = q;
+          p2 = q;
         }
         tail.nextZ = null;
         inSize *= 2;
@@ -716,11 +716,11 @@ var require_earcut = __commonJS({
       return x2 | y2 << 1;
     }
     function getLeftmost(start) {
-      var p3 = start, leftmost = start;
+      var p2 = start, leftmost = start;
       do {
-        if (p3.x < leftmost.x || p3.x === leftmost.x && p3.y < leftmost.y) leftmost = p3;
-        p3 = p3.next;
-      } while (p3 !== start);
+        if (p2.x < leftmost.x || p2.x === leftmost.x && p2.y < leftmost.y) leftmost = p2;
+        p2 = p2.next;
+      } while (p2 !== start);
       return leftmost;
     }
     function pointInTriangle(ax, ay, bx, by, cx, cy, px, py) {
@@ -732,48 +732,48 @@ var require_earcut = __commonJS({
       (area(a2.prev, a2, b2.prev) || area(a2, b2.prev, b2)) || // does not create opposite-facing sectors
       equals(a2, b2) && area(a2.prev, a2, a2.next) > 0 && area(b2.prev, b2, b2.next) > 0);
     }
-    function area(p3, q, r2) {
-      return (q.y - p3.y) * (r2.x - q.x) - (q.x - p3.x) * (r2.y - q.y);
+    function area(p2, q, r2) {
+      return (q.y - p2.y) * (r2.x - q.x) - (q.x - p2.x) * (r2.y - q.y);
     }
-    function equals(p1, p22) {
-      return p1.x === p22.x && p1.y === p22.y;
+    function equals(p1, p2) {
+      return p1.x === p2.x && p1.y === p2.y;
     }
-    function intersects(p1, q1, p22, q2) {
-      var o1 = sign2(area(p1, q1, p22));
+    function intersects(p1, q1, p2, q2) {
+      var o1 = sign2(area(p1, q1, p2));
       var o2 = sign2(area(p1, q1, q2));
-      var o3 = sign2(area(p22, q2, p1));
-      var o4 = sign2(area(p22, q2, q1));
+      var o3 = sign2(area(p2, q2, p1));
+      var o4 = sign2(area(p2, q2, q1));
       if (o1 !== o2 && o3 !== o4) return true;
-      if (o1 === 0 && onSegment(p1, p22, q1)) return true;
+      if (o1 === 0 && onSegment(p1, p2, q1)) return true;
       if (o2 === 0 && onSegment(p1, q2, q1)) return true;
-      if (o3 === 0 && onSegment(p22, p1, q2)) return true;
-      if (o4 === 0 && onSegment(p22, q1, q2)) return true;
+      if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+      if (o4 === 0 && onSegment(p2, q1, q2)) return true;
       return false;
     }
-    function onSegment(p3, q, r2) {
-      return q.x <= Math.max(p3.x, r2.x) && q.x >= Math.min(p3.x, r2.x) && q.y <= Math.max(p3.y, r2.y) && q.y >= Math.min(p3.y, r2.y);
+    function onSegment(p2, q, r2) {
+      return q.x <= Math.max(p2.x, r2.x) && q.x >= Math.min(p2.x, r2.x) && q.y <= Math.max(p2.y, r2.y) && q.y >= Math.min(p2.y, r2.y);
     }
     function sign2(num) {
       return num > 0 ? 1 : num < 0 ? -1 : 0;
     }
     function intersectsPolygon(a2, b2) {
-      var p3 = a2;
+      var p2 = a2;
       do {
-        if (p3.i !== a2.i && p3.next.i !== a2.i && p3.i !== b2.i && p3.next.i !== b2.i && intersects(p3, p3.next, a2, b2)) return true;
-        p3 = p3.next;
-      } while (p3 !== a2);
+        if (p2.i !== a2.i && p2.next.i !== a2.i && p2.i !== b2.i && p2.next.i !== b2.i && intersects(p2, p2.next, a2, b2)) return true;
+        p2 = p2.next;
+      } while (p2 !== a2);
       return false;
     }
     function locallyInside(a2, b2) {
       return area(a2.prev, a2, a2.next) < 0 ? area(a2, b2, a2.next) >= 0 && area(a2, a2.prev, b2) >= 0 : area(a2, b2, a2.prev) < 0 || area(a2, a2.next, b2) < 0;
     }
     function middleInside(a2, b2) {
-      var p3 = a2, inside = false, px = (a2.x + b2.x) / 2, py = (a2.y + b2.y) / 2;
+      var p2 = a2, inside = false, px = (a2.x + b2.x) / 2, py = (a2.y + b2.y) / 2;
       do {
-        if (p3.y > py !== p3.next.y > py && p3.next.y !== p3.y && px < (p3.next.x - p3.x) * (py - p3.y) / (p3.next.y - p3.y) + p3.x)
+        if (p2.y > py !== p2.next.y > py && p2.next.y !== p2.y && px < (p2.next.x - p2.x) * (py - p2.y) / (p2.next.y - p2.y) + p2.x)
           inside = !inside;
-        p3 = p3.next;
-      } while (p3 !== a2);
+        p2 = p2.next;
+      } while (p2 !== a2);
       return inside;
     }
     function splitPolygon(a2, b2) {
@@ -789,23 +789,23 @@ var require_earcut = __commonJS({
       return b22;
     }
     function insertNode(i2, x2, y2, last) {
-      var p3 = new Node(i2, x2, y2);
+      var p2 = new Node(i2, x2, y2);
       if (!last) {
-        p3.prev = p3;
-        p3.next = p3;
+        p2.prev = p2;
+        p2.next = p2;
       } else {
-        p3.next = last.next;
-        p3.prev = last;
-        last.next.prev = p3;
-        last.next = p3;
+        p2.next = last.next;
+        p2.prev = last;
+        last.next.prev = p2;
+        last.next = p2;
       }
-      return p3;
+      return p2;
     }
-    function removeNode(p3) {
-      p3.next.prev = p3.prev;
-      p3.prev.next = p3.next;
-      if (p3.prevZ) p3.prevZ.nextZ = p3.nextZ;
-      if (p3.nextZ) p3.nextZ.prevZ = p3.prevZ;
+    function removeNode(p2) {
+      p2.next.prev = p2.prev;
+      p2.prev.next = p2.next;
+      if (p2.prevZ) p2.prevZ.nextZ = p2.nextZ;
+      if (p2.nextZ) p2.nextZ.prevZ = p2.prevZ;
     }
     function Node(i2, x2, y2) {
       this.i = i2;
@@ -3898,9 +3898,9 @@ var require_url = __commonJS({
         if (!ipv6Hostname) {
           this.hostname = punycode.toASCII(this.hostname);
         }
-        var p3 = this.port ? ":" + this.port : "";
+        var p2 = this.port ? ":" + this.port : "";
         var h2 = this.hostname || "";
-        this.host = h2 + p3;
+        this.host = h2 + p2;
         this.href += this.host;
         if (ipv6Hostname) {
           this.hostname = this.hostname.substr(1, this.hostname.length - 2);
@@ -3946,9 +3946,9 @@ var require_url = __commonJS({
         this.pathname = "/";
       }
       if (this.pathname || this.search) {
-        var p3 = this.pathname || "";
+        var p2 = this.pathname || "";
         var s2 = this.search || "";
-        this.path = p3 + s2;
+        this.path = p2 + s2;
       }
       this.href = this.format();
       return this;
@@ -4090,9 +4090,9 @@ var require_url = __commonJS({
         result.hostname = relative.hostname || relative.host;
         result.port = relative.port;
         if (result.pathname || result.search) {
-          var p3 = result.pathname || "";
+          var p2 = result.pathname || "";
           var s2 = result.search || "";
-          result.path = p3 + s2;
+          result.path = p2 + s2;
         }
         result.slashes = result.slashes || relative.slashes;
         result.href = result.format();
@@ -6949,24 +6949,24 @@ var init_Point = __esm({
        * @param p - The point to copy from
        * @returns The point instance itself
        */
-      copyFrom(p3) {
-        return this.set(p3.x, p3.y), this;
+      copyFrom(p2) {
+        return this.set(p2.x, p2.y), this;
       }
       /**
        * Copies this point's x and y into the given point (`p`).
        * @param p - The point to copy to. Can be any of type that is or extends `IPointData`
        * @returns The point (`p`) with values updated
        */
-      copyTo(p3) {
-        return p3.set(this.x, this.y), p3;
+      copyTo(p2) {
+        return p2.set(this.x, this.y), p2;
       }
       /**
        * Accepts another point (`p`) and returns `true` if the given point is equal to this point
        * @param p - The point to check
        * @returns Returns `true` if both `x` and `y` are equal
        */
-      equals(p3) {
-        return p3.x === this.x && p3.y === this.y;
+      equals(p2) {
+        return p2.x === this.x && p2.y === this.y;
       }
       /**
        * Sets the point to a new `x` and `y` position.
@@ -7245,10 +7245,10 @@ var init_Polygon = __esm({
       constructor(...points) {
         let flat = Array.isArray(points[0]) ? points[0] : points;
         if (typeof flat[0] != "number") {
-          const p3 = [];
+          const p2 = [];
           for (let i2 = 0, il = flat.length; i2 < il; i2++)
-            p3.push(flat[i2].x, flat[i2].y);
-          flat = p3;
+            p2.push(flat[i2].x, flat[i2].y);
+          flat = p2;
         }
         this.points = flat, this.type = SHAPES.POLY, this.closeStroke = true;
       }
@@ -7797,24 +7797,24 @@ var init_ObservablePoint = __esm({
        * @param p - The point to copy from. Can be any of type that is or extends `IPointData`
        * @returns The observable point instance itself
        */
-      copyFrom(p3) {
-        return (this._x !== p3.x || this._y !== p3.y) && (this._x = p3.x, this._y = p3.y, this.cb.call(this.scope)), this;
+      copyFrom(p2) {
+        return (this._x !== p2.x || this._y !== p2.y) && (this._x = p2.x, this._y = p2.y, this.cb.call(this.scope)), this;
       }
       /**
        * Copies this point's x and y into that of the given point (`p`)
        * @param p - The point to copy to. Can be any of type that is or extends `IPointData`
        * @returns The point (`p`) with values updated
        */
-      copyTo(p3) {
-        return p3.set(this._x, this._y), p3;
+      copyTo(p2) {
+        return p2.set(this._x, this._y), p2;
       }
       /**
        * Accepts another point (`p`) and returns `true` if the given point is equal to this point
        * @param p - The point to check
        * @returns Returns `true` if both `x` and `y` are equal
        */
-      equals(p3) {
-        return p3.x === this._x && p3.y === this._y;
+      equals(p2) {
+        return p2.x === this._x && p2.y === this._y;
       }
       /** Position of the observable point on the x axis. */
       get x() {
@@ -18175,15 +18175,15 @@ var init_cubism4_es = __esm({
         const ba = b2 / a2;
         const ca = c2 / a2;
         const da = d2 / a2;
-        const p3 = (3 * ca - ba * ba) / 3;
-        const p32 = p3 / 3;
+        const p2 = (3 * ca - ba * ba) / 3;
+        const p3 = p2 / 3;
         const q = (2 * ba * ba * ba - 9 * ba * ca + 27 * da) / 27;
         const q2 = q / 2;
-        const discriminant = q2 * q2 + p32 * p32 * p32;
+        const discriminant = q2 * q2 + p3 * p3 * p3;
         const center = 0.5;
         const threshold = center + 0.01;
         if (discriminant < 0) {
-          const mp3 = -p3 / 3;
+          const mp3 = -p2 / 3;
           const mp33 = mp3 * mp3 * mp3;
           const r2 = this.sqrt(mp33);
           const t2 = -q / (2 * r2);
@@ -27693,16 +27693,16 @@ var SettingsStore = class {
       const raw = await this.app.data?.kv.get(KEY);
       if (raw && typeof raw === "object") this.cur = { ...DEFAULTS, ...raw };
     } catch (e2) {
-      console.error("[vtuber] settings load \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] settings load \uC2E4\uD328:", e2);
     }
     return this.cur;
   }
-  async patch(p3) {
-    this.cur = { ...this.cur, ...p3 };
+  async patch(p2) {
+    this.cur = { ...this.cur, ...p2 };
     try {
       await this.app.data?.kv.set(KEY, this.cur);
     } catch (e2) {
-      console.error("[vtuber] settings save \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] settings save \uC2E4\uD328:", e2);
     }
     return this.cur;
   }
@@ -35018,9 +35018,9 @@ var _GraphicsGeometry = class _GraphicsGeometry2 extends BatchGeometry {
   /** Packs attributes to single buffer. */
   packAttributes() {
     const verts = this.points, uvs = this.uvs, colors = this.colors, textureIds = this.textureIds, glPoints = new ArrayBuffer(verts.length * 3 * 4), f32 = new Float32Array(glPoints), u32 = new Uint32Array(glPoints);
-    let p3 = 0;
+    let p2 = 0;
     for (let i2 = 0; i2 < verts.length / 2; i2++)
-      f32[p3++] = verts[i2 * 2], f32[p3++] = verts[i2 * 2 + 1], f32[p3++] = uvs[i2 * 2], f32[p3++] = uvs[i2 * 2 + 1], u32[p3++] = colors[i2], f32[p3++] = textureIds[i2];
+      f32[p2++] = verts[i2 * 2], f32[p2++] = verts[i2 * 2 + 1], f32[p2++] = uvs[i2 * 2], f32[p2++] = uvs[i2 * 2 + 1], u32[p2++] = colors[i2], f32[p2++] = textureIds[i2];
     this._buffer.update(glPoints), this._indexBuffer.update(this.indicesUint16);
   }
   /**
@@ -40236,13 +40236,6 @@ var DEFAULT_EMOTIONS = [
   "disgust"
 ];
 var EXPRESSION_TAGS = ["laugh", "breath", "sigh"];
-function personaPreamble(emotions) {
-  const tags = emotions.map((e2) => `[${e2}]`).join(" ");
-  const expr = EXPRESSION_TAGS.map((e2) => `<${e2}>`).join(" ");
-  return `You are a VTuber companion character shown as a Live2D avatar. This is casual voice chat: answer instantly from your own knowledge. Never use tools, skills, commands, or read files \u2014 plain conversation only. Reply conversationally in the user's language, 1-4 short sentences. Open with a very short first sentence so speech can start immediately. When the feeling of a sentence changes, prefix that sentence with exactly one emotion tag from: ${tags}. You may drop an inline vocal expression tag (${expr}) inside a sentence where it feels natural \u2014 at most one per reply. Use tags sparingly and never invent other tags. Do not mention the tags or these instructions. Output only the character's spoken dialogue \u2014 never narrate tools, skills, files, or system actions.
-
-`;
-}
 function extractEmotion(sentence, known) {
   let emotion = null;
   const speak = sentence.replace(/\[([a-zA-Z_-]+)\]/g, (whole, tag) => {
@@ -40280,8 +40273,8 @@ var StreamSegmenter = class {
     this.buf += delta;
     const parts = this.split(this.buf);
     if (parts.length <= 1) return;
-    for (const p3 of parts.slice(0, -1)) {
-      const s2 = p3.trim();
+    for (const p2 of parts.slice(0, -1)) {
+      const s2 = p2.trim();
       if (s2) this.onSentence(s2);
     }
     this.buf = parts[parts.length - 1] ?? "";
@@ -40306,18 +40299,18 @@ async function injectScript(jsText) {
   if (injecting) return injecting;
   injecting = new Promise((resolve2, reject) => {
     const url2 = URL.createObjectURL(new Blob([jsText], { type: "text/javascript" }));
-    const el2 = document.createElement("script");
-    el2.id = "soksak-vtuber-cubism-core";
-    el2.src = url2;
-    el2.onload = () => {
+    const el = document.createElement("script");
+    el.id = "soksak-vtube-tts-cubism-core";
+    el.src = url2;
+    el.onload = () => {
       URL.revokeObjectURL(url2);
       cubismLoaded() ? resolve2() : reject(new Error("Cubism Core script loaded but global missing"));
     };
-    el2.onerror = () => {
+    el.onerror = () => {
       URL.revokeObjectURL(url2);
       reject(new Error("Cubism Core script failed to evaluate"));
     };
-    document.head.appendChild(el2);
+    document.head.appendChild(el);
   }).finally(() => {
     injecting = null;
   });
@@ -40332,7 +40325,7 @@ async function ensureFromCache(app) {
       return true;
     }
   } catch (e2) {
-    console.error("[vtuber] cubism \uCE90\uC2DC \uB85C\uB4DC \uC2E4\uD328:", e2);
+    console.error("[vtube-tts] cubism \uCE90\uC2DC \uB85C\uB4DC \uC2E4\uD328:", e2);
   }
   return false;
 }
@@ -40518,7 +40511,7 @@ var Live2DRenderer = class {
     const core = im?.coreModel;
     const lipIds = im?.motionManager?.lipSyncIds ?? [];
     if (!core?.setParameterValueById || lipIds.length === 0) {
-      console.warn("[vtuber] lipSyncIds unavailable \u2014 lip sync disabled");
+      console.warn("[vtube-tts] lipSyncIds unavailable \u2014 lip sync disabled");
       return;
     }
     const self2 = this;
@@ -40578,7 +40571,7 @@ var Live2DRenderer = class {
     try {
       return await this.model.expression(name) === true;
     } catch (e2) {
-      console.error("[vtuber] expression \uC801\uC6A9 \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] expression \uC801\uC6A9 \uC2E4\uD328:", e2);
       return false;
     }
   }
@@ -40589,7 +40582,7 @@ var Live2DRenderer = class {
     try {
       return await this.model.motion(group, index, 3) === true;
     } catch (e2) {
-      console.error("[vtuber] motion \uC7AC\uC0DD \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] motion \uC7AC\uC0DD \uC2E4\uD328:", e2);
       return false;
     }
   }
@@ -40758,7 +40751,7 @@ var SpeechSynthesisTts = class _SpeechSynthesisTts {
     const voice = this.pickVoice(lang);
     const ok = await this.speakOnce(text, lang, voice);
     if (!ok && voice) {
-      console.warn(`[vtuber] voice "${voice.name}" failed \u2014 falling back to locale default`);
+      console.warn(`[vtube-tts] voice "${voice.name}" failed \u2014 falling back to locale default`);
       await this.speakOnce(text, lang, null);
     }
   }
@@ -40841,7 +40834,7 @@ var SpeechSidecarProc = class {
     return this.handle != null;
   }
   failAll(message) {
-    for (const p3 of this.pending.values()) p3.onDone(false, message);
+    for (const p2 of this.pending.values()) p2.onDone(false, message);
     this.pending.clear();
   }
   teardown() {
@@ -40879,7 +40872,7 @@ var SpeechSidecarProc = class {
       this.subs.push(
         proc.onData(handle, (bytes) => this.feed(bytes)),
         proc.onExit(handle, (code) => {
-          console.warn("[vtuber] speech sidecar exited:", code);
+          console.warn("[vtube-tts] speech sidecar exited:", code);
           this.failAll(`sidecar exited (${code})`);
           this.teardown();
         })
@@ -40895,7 +40888,7 @@ var SpeechSidecarProc = class {
       });
       return true;
     } catch (e2) {
-      console.error("[vtuber] speech sidecar spawn \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] speech sidecar spawn \uC2E4\uD328:", e2);
       this.teardown();
       return false;
     }
@@ -40921,25 +40914,25 @@ var SpeechSidecarProc = class {
           numSpeakers: Number(msg.numSpeakers ?? 1)
         };
       }
-      const p3 = this.pending.get(msg.id);
-      if (!p3) continue;
+      const p2 = this.pending.get(msg.id);
+      if (!p2) continue;
       if (typeof msg.pcmBase64 === "string") {
         const bin = atob(msg.pcmBase64);
         const pcm = new Uint8Array(bin.length);
         for (let i2 = 0; i2 < bin.length; i2++) pcm[i2] = bin.charCodeAt(i2);
-        p3.onChunk(pcm, msg.sampleRate ?? 22050);
+        p2.onChunk(pcm, msg.sampleRate ?? 22050);
       }
       if (msg.done === true || msg.ok === false) {
         this.pending.delete(msg.id);
-        p3.onDone(msg.ok === true, msg.message);
+        p2.onDone(msg.ok === true, msg.message);
       }
     }
   }
   /** 스트리밍 tts 요청 — 청크/종결 콜백. 반환=요청 id(취소 식별용). */
-  async tts(text, lang, sid, speed, p3) {
+  async tts(text, lang, sid, speed, p2) {
     if (!await this.ensure() || this.handle == null) return null;
     const id = this.nextId++;
-    this.pending.set(id, p3);
+    this.pending.set(id, p2);
     try {
       await this.app.process.write(
         this.handle,
@@ -40948,7 +40941,7 @@ var SpeechSidecarProc = class {
       return id;
     } catch (e2) {
       this.pending.delete(id);
-      p3.onDone(false, String(e2));
+      p2.onDone(false, String(e2));
       return null;
     }
   }
@@ -41062,7 +41055,7 @@ var SidecarTts = class {
         },
         onDone: (ok, message) => {
           done = true;
-          if (!ok && message) console.warn("[vtuber] sidecar tts:", message);
+          if (!ok && message) console.warn("[vtube-tts] sidecar tts:", message);
           maybeFinish();
         }
       }).then((id) => {
@@ -41099,293 +41092,14 @@ var SidecarTts = class {
   }
 };
 
-// src/acp.ts
-var CORE = "plugin.soksak-plugin-agents-acp.";
-var AcpChat = class {
-  constructor(app, agent, model = () => "") {
-    this.app = app;
-    this.agent = agent;
-    this.model = model;
-  }
-  connId = null;
-  sessionId = null;
-  preambleSent = false;
-  inFlight = false;
-  connected() {
-    return this.connId != null && this.sessionId != null;
-  }
-  busy() {
-    return this.inFlight;
-  }
-  /** 코어 커맨드 실행 + 대칭봉투 {ok,code,message,data} 해제 — 실패는 message 로 throw. */
-  async core(name, params) {
-    const r2 = await this.app.commands.execute(CORE + name, params ?? {});
-    if (!r2?.ok) throw new Error(String(r2?.message ?? r2?.code ?? `acp ${name} failed`));
-    return r2.data ?? {};
-  }
-  async ensure() {
-    if (this.connId != null && this.sessionId != null)
-      return { connId: this.connId, sessionId: this.sessionId };
-    const c2 = await this.core("connect", { agent: this.agent(), permission: "deny" });
-    if (typeof c2.connId !== "number") throw new Error("acp connect: connId missing");
-    let s2;
-    try {
-      const model = this.model().trim();
-      s2 = await this.core("session-new", { connId: c2.connId, ...model ? { model } : {} });
-    } catch (e2) {
-      await this.core("disconnect", { connId: c2.connId }).catch(() => {
-      });
-      throw e2;
-    }
-    if (typeof s2.sessionId !== "string") throw new Error("acp session-new: sessionId missing");
-    this.connId = c2.connId;
-    this.sessionId = s2.sessionId;
-    this.preambleSent = false;
-    return { connId: c2.connId, sessionId: s2.sessionId };
-  }
-  drop() {
-    const id = this.connId;
-    this.connId = null;
-    this.sessionId = null;
-    this.preambleSent = false;
-    if (id != null) void this.core("disconnect", { connId: id }).catch(() => {
-    });
-  }
-  /** 한 턴 — preamble(페르소나)은 세션 첫 턴에만 앞붙인다. onDelta 로 스트리밍 텍스트 증분 전달. */
-  async ask(text, preamble, onDelta) {
-    if (this.inFlight) throw new Error("turn already in flight");
-    this.inFlight = true;
-    let off = null;
-    try {
-      const { connId, sessionId } = await this.ensure();
-      const t0 = performance.now();
-      let streamed = "";
-      let deltas = 0;
-      let firstDeltaMs = null;
-      let lastDeltaMs = null;
-      off = this.app.bus.on(`acp.update.${connId}`, (evt) => {
-        const u2 = evt?.update;
-        if (!u2 || u2.sessionUpdate !== "agent_message_chunk") return;
-        const t2 = u2.content?.text ?? "";
-        if (t2 !== "" && t2 === streamed) return;
-        streamed += t2;
-        if (t2) {
-          deltas++;
-          const ms = Math.round(performance.now() - t0);
-          if (firstDeltaMs == null) firstDeltaMs = ms;
-          lastDeltaMs = ms;
-          onDelta(t2);
-        }
-      });
-      const body = this.preambleSent ? text : preamble + text;
-      let r2;
-      try {
-        r2 = await this.core("prompt", { connId, sessionId, text: body, timeoutMs: 18e4 });
-      } catch (e2) {
-        this.drop();
-        throw e2;
-      }
-      this.preambleSent = true;
-      const final = String(r2.text ?? "").trim() || streamed.trim();
-      return {
-        text: final,
-        stopReason: r2.stopReason,
-        stream: { deltas, firstDeltaMs, lastDeltaMs }
-      };
-    } finally {
-      off?.dispose();
-      this.inFlight = false;
-    }
-  }
-  async cancel() {
-    if (this.connId != null && this.sessionId != null) {
-      await this.core("cancel", { connId: this.connId, sessionId: this.sessionId }).catch(() => {
-      });
-    }
-  }
-  dispose() {
-    this.drop();
-  }
-};
-
-// src/claudeCli.ts
-var ClaudeCliChat = class {
-  constructor(app, model) {
-    this.app = app;
-    this.model = model;
-  }
-  handle = null;
-  spawnedModel = "";
-  buf = "";
-  subs = [];
-  sessionId = null;
-  systemPrompt = "";
-  turn = null;
-  connected() {
-    return this.handle != null;
-  }
-  busy() {
-    return this.turn != null;
-  }
-  effModel() {
-    return this.model().trim() || "haiku";
-  }
-  teardown() {
-    for (const s2 of this.subs) s2.dispose();
-    this.subs = [];
-    this.handle = null;
-    this.buf = "";
-  }
-  async ensureProc() {
-    const proc = this.app.process;
-    if (!proc) throw new Error("process permission unavailable");
-    if (this.handle != null && this.spawnedModel !== this.effModel()) {
-      const h2 = this.handle;
-      this.teardown();
-      void proc.kill(h2).catch(() => {
-      });
-    }
-    if (this.handle != null) return;
-    const args = [
-      "-p",
-      ...this.systemPrompt ? ["--system-prompt", this.systemPrompt] : [],
-      "--input-format",
-      "stream-json",
-      "--output-format",
-      "stream-json",
-      "--include-partial-messages",
-      "--verbose",
-      "--setting-sources",
-      "",
-      "--model",
-      this.effModel(),
-      ...this.sessionId ? ["--resume", this.sessionId] : []
-    ];
-    const handle = await proc.spawn(
-      "/bin/sh",
-      ["-lc", 'cd "$HOME" 2>/dev/null; exec claude "$@"', "claude", ...args],
-      { envRemove: ["CLAUDECODE"] }
-    );
-    this.handle = handle;
-    this.spawnedModel = this.effModel();
-    this.subs.push(
-      proc.onData(handle, (bytes) => this.feed(bytes)),
-      proc.onExit(handle, (code) => {
-        const t2 = this.turn;
-        this.turn = null;
-        this.teardown();
-        t2?.fail(new Error(`claude -p exited (${code})`));
-      })
-    );
-  }
-  feed(bytes) {
-    this.buf += new TextDecoder().decode(bytes);
-    let nl;
-    while ((nl = this.buf.indexOf("\n")) >= 0) {
-      const line = this.buf.slice(0, nl).trim();
-      this.buf = this.buf.slice(nl + 1);
-      if (!line) continue;
-      let d2;
-      try {
-        d2 = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      if (typeof d2.session_id === "string") this.sessionId = d2.session_id;
-      const t2 = this.turn;
-      if (!t2) continue;
-      if (d2.type === "stream_event" && d2.event?.type === "content_block_delta") {
-        const txt = d2.event.delta?.text ?? "";
-        if (txt) {
-          t2.deltas++;
-          const ms = Math.round(performance.now() - t2.t0);
-          if (t2.firstDeltaMs == null) t2.firstDeltaMs = ms;
-          t2.lastDeltaMs = ms;
-          t2.streamed += txt;
-          t2.onDelta(txt);
-        }
-      } else if (d2.type === "result") {
-        if (d2.subtype === "success") t2.finalText = String(d2.result ?? "");
-        this.turn = null;
-        t2.finish({
-          text: (t2.finalText || t2.streamed).trim(),
-          deltas: t2.deltas,
-          firstDeltaMs: t2.firstDeltaMs,
-          lastDeltaMs: t2.lastDeltaMs
-        });
-      }
-    }
-  }
-  async ask(text, preamble, onDelta) {
-    if (this.turn) throw new Error("turn already in flight");
-    this.systemPrompt = preamble.trim();
-    await this.ensureProc();
-    const proc = this.app.process;
-    const body = text;
-    return new Promise((resolve2, reject) => {
-      this.turn = {
-        onDelta,
-        finish: (r2) => {
-          resolve2({
-            text: r2.text,
-            stopReason: void 0,
-            stream: { deltas: r2.deltas, firstDeltaMs: r2.firstDeltaMs, lastDeltaMs: r2.lastDeltaMs }
-          });
-        },
-        fail: reject,
-        t0: performance.now(),
-        deltas: 0,
-        firstDeltaMs: null,
-        lastDeltaMs: null,
-        streamed: "",
-        finalText: ""
-      };
-      const msg = {
-        type: "user",
-        message: { role: "user", content: [{ type: "text", text: body }] }
-      };
-      void proc.write(this.handle, JSON.stringify(msg) + "\n").catch((e2) => {
-        const t2 = this.turn;
-        this.turn = null;
-        t2?.fail(e2 instanceof Error ? e2 : new Error(String(e2)));
-      });
-    });
-  }
-  /** 진행 중 턴 중단 — 상주 프로세스를 죽인다(다음 턴에 --resume 재기동, 대화 유지). */
-  async cancel() {
-    if (this.handle != null) {
-      const h2 = this.handle;
-      const t2 = this.turn;
-      this.turn = null;
-      this.teardown();
-      await this.app.process?.kill(h2).catch(() => {
-      });
-      t2?.fail(new Error("cancelled"));
-    }
-  }
-  dispose() {
-    void this.cancel();
-    this.sessionId = null;
-  }
-};
-
 // src/engine.ts
-var VtuberEngine = class {
+var VtubeTtsEngine = class {
   constructor(app, pluginDir = "") {
     this.app = app;
     this.pluginDir = pluginDir;
     this.lang = app.locale?.() ?? navigator.language ?? "en";
     this.settings = new SettingsStore(app);
     this.renderer = new Live2DRenderer(app);
-    this.acp = new AcpChat(
-      app,
-      () => this.agentSetting(),
-      () => this.agentModelSetting()
-    );
-    this.claudeCli = new ClaudeCliChat(app, () => {
-      const m2 = this.agentModelSetting();
-      return /haiku|sonnet|opus|fable|^claude/i.test(m2) ? m2 : "";
-    });
     this.tts = new SpeechSynthesisTts({
       voiceName: () => {
         const v2 = this.app.settings.get("voiceName");
@@ -41462,11 +41176,8 @@ var VtuberEngine = class {
   tts;
   sidecar;
   speech;
-  acp;
-  claudeCli;
   listeners = /* @__PURE__ */ new Set();
   chatLog = [];
-  turnBusy = false;
   lang;
   usingSidecar() {
     return this.sidecar.available();
@@ -41474,18 +41185,6 @@ var VtuberEngine = class {
   /** 코어 선언형 설정의 모델 경로 — 단일 진실(설정 모달·plugin.settings.set·model.load 전부 여기로 수렴). */
   configuredModelPath() {
     const v2 = this.app.settings.get("modelPath");
-    return typeof v2 === "string" ? v2.trim() : "";
-  }
-  agentSetting() {
-    const v2 = this.app.settings.get("agent");
-    return v2 === "codex" || v2 === "gemini" || v2 === "claude-bare" ? v2 : "claude";
-  }
-  /** 대화 백엔드 — claude-bare = claude -p 직행(즉답), 그 외 = acp-core. */
-  chatBackend() {
-    return this.agentSetting() === "claude-bare" ? this.claudeCli : this.acp;
-  }
-  agentModelSetting() {
-    const v2 = this.app.settings.get("agentModel");
     return typeof v2 === "string" ? v2.trim() : "";
   }
   /** 캐릭터가 지금 어느 표면에 있어야 하는가 — mascot > 패널. */
@@ -41504,16 +41203,7 @@ var VtuberEngine = class {
         this.sys(`model restore failed: ${String(e2)}`);
       }
     }
-    let lastAgent = this.agentSetting() + "|" + this.agentModelSetting();
     this.app.settings.onChange(() => {
-      const agent = this.agentSetting() + "|" + this.agentModelSetting();
-      if (agent !== lastAgent) {
-        lastAgent = agent;
-        this.acp.dispose();
-        this.claudeCli.dispose();
-        this.sys(`agent switched to ${agent.replace(/\|$/, "")}`);
-        this.emit({ kind: "state" });
-      }
       const next = this.configuredModelPath();
       if (!next || next === this.renderer.info?.path) return;
       void this.loadModel(next).catch((e2) => this.sys(`model switch failed: ${String(e2)}`));
@@ -41522,12 +41212,12 @@ var VtuberEngine = class {
   async persistModelPath(path2) {
     try {
       await this.app.commands.execute("plugin.settings.set", {
-        id: "soksak-plugin-vtuber",
+        id: "soksak-plugin-vtube-tts",
         key: "modelPath",
         value: path2
       });
     } catch (e2) {
-      console.error("[vtuber] modelPath \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328:", e2);
+      console.error("[vtube-tts] modelPath \uC124\uC815 \uC800\uC7A5 \uC2E4\uD328:", e2);
     }
   }
   // ── 이벤트 ──
@@ -41568,8 +41258,6 @@ var VtuberEngine = class {
       sidecarRunning: this.sidecar.running(),
       sidecarInfo: this.sidecar.info(),
       speaking: this.speech.speaking,
-      busy: this.turnBusy,
-      agentConnected: this.chatBackend().connected(),
       lang: this.lang,
       renderer: this.renderer.stats()
     };
@@ -41669,136 +41357,38 @@ var VtuberEngine = class {
     seg.flush();
     return utterances;
   }
-  /** 한 대화 턴 — 에이전트 스트리밍을 문장 단위로 실시간 발화한다. 완료 후 전체 응답+타이밍 반환.
-   *  timing.firstSentenceMs ≈ turnMs 이면 에이전트가 델타를 통짜로 보낸 것(파이프라인 지연 아님). */
-  async chat(text) {
-    if (this.turnBusy) throw new Error("turn already in flight");
-    this.turnBusy = true;
-    this.emit({ kind: "state" });
-    this.pushChat({ who: "user", text });
-    const t0 = performance.now();
-    let firstSentenceMs = null;
-    const utterances = [];
-    const seg = new StreamSegmenter((sentence) => {
-      const u2 = extractEmotion(sentence, DEFAULT_EMOTIONS);
-      if (u2.speak) {
-        if (firstSentenceMs == null) firstSentenceMs = Math.round(performance.now() - t0);
-        utterances.push(u2);
-        this.speech.enqueue(u2);
-        if (u2.text) this.pushChat({ who: "char", text: u2.text });
-      }
-    });
-    try {
-      const r2 = await this.chatBackend().ask(
-        text,
-        personaPreamble(DEFAULT_EMOTIONS),
-        (delta) => seg.feed(delta)
-      );
-      seg.flush();
-      if (utterances.length === 0 && r2.text) {
-        for (const u2 of this.speakText(r2.text)) {
-          utterances.push(u2);
-          this.pushChat({ who: "char", text: u2.text });
-        }
-      }
-      const reply = utterances.map((u2) => u2.text).join(" ");
-      return {
-        reply,
-        utterances,
-        timing: {
-          turnMs: Math.round(performance.now() - t0),
-          firstSentenceMs,
-          ...r2.stream
-          // deltas/firstDeltaMs/lastDeltaMs — 에이전트 스트리밍 형태 판별
-        }
-      };
-    } catch (e2) {
-      this.sys(`${String(e2)}`);
-      throw e2;
-    } finally {
-      this.turnBusy = false;
-      this.emit({ kind: "state" });
-    }
-  }
   async stop() {
     this.speech.cancel();
     this.renderer.setMouth(false);
-    await this.acp.cancel();
-    await this.claudeCli.cancel();
     this.emit({ kind: "subtitle", text: "" });
     this.emit({ kind: "state" });
   }
   dispose() {
     this.speech.cancel();
     this.sidecar.dispose();
-    this.acp.dispose();
-    this.claudeCli.dispose();
     this.renderer.dispose();
     this.listeners.clear();
   }
 };
 
 // src/styles.ts
-var GLOBAL_CSS = `
-:host { all: initial; }
-.vt-root {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  font: 13px/1.5 system-ui, sans-serif; color: #e8e8ee; background: transparent;
-  overflow: hidden;
-}
-.vt-stage { position: relative; flex: 1 1 60%; min-height: 120px; }
-.vt-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.vt-stage-empty {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  color: #9a9aa6; text-align: center; padding: 24px; white-space: pre-wrap;
-}
-.vt-subtitle {
-  min-height: 22px; padding: 4px 12px; text-align: center; color: #ffd9e8;
-  text-shadow: 0 1px 2px rgba(0,0,0,.6); font-size: 14px;
-}
-.vt-chat { flex: 1 1 40%; min-height: 80px; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-.vt-msg { max-width: 86%; padding: 6px 10px; border-radius: 10px; white-space: pre-wrap; word-break: break-word; }
-.vt-msg.user { align-self: flex-end; background: #2c3a55; }
-.vt-msg.char { align-self: flex-start; background: #3a2c40; }
-.vt-msg.sys { align-self: center; background: transparent; color: #9a9aa6; font-size: 12px; }
-.vt-inputrow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-.vt-input {
-  flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06); color: inherit; outline: none; font: inherit;
-}
-.vt-btn {
-  padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.10); color: inherit; cursor: pointer; font: inherit;
-}
-.vt-btn:hover { background: rgba(255,255,255,.18); }
-.vt-btn[disabled] { opacity: .5; cursor: default; }
-.vt-toolbar { display: flex; gap: 6px; padding: 6px 8px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); }
-.vt-toolbar .vt-btn { padding: 4px 9px; font-size: 12px; }
-.vt-card {
-  margin: 14px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.10); display: flex; flex-direction: column; gap: 10px;
-}
-.vt-card p { margin: 0; color: #c6c6d0; white-space: pre-wrap; }
-.vt-card a { color: #8ab8ff; }
-.vt-err { color: #ff9c9c; white-space: pre-wrap; }
-`;
 var MASCOT_CSS = `
-#soksak-vtuber-mascot {
+#soksak-vtube-tts-mascot {
   position: fixed; right: 16px; bottom: 12px; width: 280px; height: 380px;
   z-index: 2147483000; pointer-events: none;
 }
-#soksak-vtuber-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
-#soksak-vtuber-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-#soksak-vtuber-mascot .vtm-subtitle {
+#soksak-vtube-tts-mascot .vtm-stage { position: absolute; inset: 0 0 34px 0; }
+#soksak-vtube-tts-mascot .vtm-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#soksak-vtube-tts-mascot .vtm-subtitle {
   position: absolute; left: 0; right: 0; bottom: 0; min-height: 20px; max-height: 64px; overflow: hidden;
   text-align: center; font: 13px/1.4 system-ui, sans-serif; color: #fff;
   background: rgba(20,16,24,.72); border-radius: 10px; padding: 5px 9px; white-space: pre-wrap;
 }
-#soksak-vtuber-mascot .vtm-subtitle:empty { display: none; }
+#soksak-vtube-tts-mascot .vtm-subtitle:empty { display: none; }
 `;
 
 // src/mascot.ts
-var HOST_ID = "soksak-vtuber-mascot";
+var HOST_ID = "soksak-vtube-tts-mascot";
 var MascotOverlay = class {
   constructor(engine2) {
     this.engine = engine2;
@@ -41856,237 +41446,6 @@ var MascotOverlay = class {
   }
 };
 
-// src/i18n.ts
-var STRINGS = {
-  setupTitle: { en: "Setup", ko: "\uC124\uC815" },
-  cubismNotice: {
-    en: "Rendering requires the Live2D Cubism Core runtime (proprietary, \xA9 Live2D Inc.). It is downloaded from the official Live2D CDN and cached locally \u2014 it is not bundled with this plugin. By continuing you accept the Live2D Proprietary Software License Agreement.",
-    ko: "\uB80C\uB354\uB9C1\uC5D0\uB294 Live2D Cubism Core \uB7F0\uD0C0\uC784(\uD504\uB85C\uD504\uB77C\uC774\uC5B4\uD130\uB9AC, \xA9 Live2D Inc.)\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uC774 \uD50C\uB7EC\uADF8\uC778\uC5D0 \uB3D9\uBD09\uB418\uC9C0 \uC54A\uC73C\uBA70, \uB3D9\uC758 \uC2DC Live2D \uACF5\uC2DD CDN\uC5D0\uC11C \uB0B4\uB824\uBC1B\uC544 \uB85C\uCEEC\uC5D0 \uCE90\uC2DC\uD569\uB2C8\uB2E4. \uACC4\uC18D\uD558\uBA74 Live2D \uB3C5\uC810 \uC18C\uD504\uD2B8\uC6E8\uC5B4 \uB77C\uC774\uC120\uC2A4\uC5D0 \uB3D9\uC758\uD558\uB294 \uAC83\uC785\uB2C8\uB2E4."
-  },
-  cubismAccept: { en: "Accept & download", ko: "\uB3D9\uC758\uD558\uACE0 \uB0B4\uB824\uBC1B\uAE30" },
-  cubismLicenseLink: { en: "License terms", ko: "\uB77C\uC774\uC120\uC2A4 \uC57D\uAD00" },
-  cubismReady: { en: "Cubism Core ready", ko: "Cubism Core \uC900\uBE44\uB428" },
-  modelPathLabel: {
-    en: "Live2D model path (.model3.json)",
-    ko: "Live2D \uBAA8\uB378 \uACBD\uB85C (.model3.json)"
-  },
-  modelLoad: { en: "Load model", ko: "\uBAA8\uB378 \uB85C\uB4DC" },
-  modelNone: {
-    en: "No model loaded. Point to a .model3.json you own \u2014 sample models are not bundled (per-character license terms).",
-    ko: "\uB85C\uB4DC\uB41C \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uBCF4\uC720\uD55C .model3.json \uACBD\uB85C\uB97C \uC9C0\uC815\uD558\uC138\uC694 \u2014 \uC0D8\uD50C \uBAA8\uB378\uC740 \uB3D9\uBD09\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4(\uCE90\uB9AD\uD130\uBCC4 \uC57D\uAD00)."
-  },
-  chatPlaceholder: { en: "Talk to the character\u2026", ko: "\uCE90\uB9AD\uD130\uC5D0\uAC8C \uB9D0 \uAC78\uAE30\u2026" },
-  send: { en: "Send", ko: "\uC804\uC1A1" },
-  thinking: { en: "Thinking\u2026", ko: "\uC0DD\uAC01 \uC911\u2026" },
-  mascotHolds: {
-    en: "Avatar is in mascot mode \u2014 toggle mascot off to bring it back here.",
-    ko: "\uC544\uBC14\uD0C0\uAC00 \uB9C8\uC2A4\uCF54\uD2B8 \uBAA8\uB4DC\uC5D0 \uC788\uC2B5\uB2C8\uB2E4 \u2014 \uB9C8\uC2A4\uCF54\uD2B8\uB97C \uB044\uBA74 \uC5EC\uAE30\uB85C \uB3CC\uC544\uC635\uB2C8\uB2E4."
-  },
-  ttsOn: { en: "Voice on", ko: "\uC74C\uC131 \uCF2C" },
-  ttsOff: { en: "Voice off", ko: "\uC74C\uC131 \uB054" },
-  mascotOn: { en: "Mascot on", ko: "\uB9C8\uC2A4\uCF54\uD2B8 \uCF2C" },
-  mascotOff: { en: "Mascot off", ko: "\uB9C8\uC2A4\uCF54\uD2B8 \uB054" },
-  errPrefix: { en: "Error", ko: "\uC624\uB958" },
-  ttsUnavailable: {
-    en: "Speech synthesis is unavailable on this system \u2014 subtitles only.",
-    ko: "\uC774 \uC2DC\uC2A4\uD15C\uC5D0\uB294 \uC74C\uC131 \uD569\uC131\uC774 \uC5C6\uC2B5\uB2C8\uB2E4 \u2014 \uC790\uB9C9\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4."
-  }
-};
-function makeT(lang) {
-  const l2 = lang.startsWith("ko") ? "ko" : "en";
-  return (key) => STRINGS[key][l2];
-}
-
-// src/panelView.ts
-var mounts = /* @__PURE__ */ new WeakMap();
-function mountPanel(container, viewCtx, engine2) {
-  unmountPanel(container);
-  container.style.position = "relative";
-  const t2 = makeT(engine2.lang);
-  const shadow = container.shadowRoot ?? container.attachShadow({ mode: "open" });
-  shadow.replaceChildren();
-  const style = document.createElement("style");
-  style.textContent = GLOBAL_CSS;
-  shadow.appendChild(style);
-  const root2 = el("div", "vt-root");
-  shadow.appendChild(root2);
-  const toolbar = el("div", "vt-toolbar");
-  const charSel = document.createElement("select");
-  charSel.className = "vt-btn";
-  charSel.title = "character";
-  const ttsBtn = el("button", "vt-btn");
-  const mascotBtn = el("button", "vt-btn");
-  const stopBtn = el("button", "vt-btn");
-  stopBtn.textContent = "\u25A0";
-  stopBtn.title = "stop";
-  toolbar.append(charSel, ttsBtn, mascotBtn, stopBtn);
-  root2.appendChild(toolbar);
-  const stage = el("div", "vt-stage");
-  const stageEmpty = el("div", "vt-stage-empty");
-  stage.appendChild(stageEmpty);
-  root2.appendChild(stage);
-  const subtitle = el("div", "vt-subtitle");
-  root2.appendChild(subtitle);
-  const chat = el("div", "vt-chat");
-  root2.appendChild(chat);
-  const inputRow = el("div", "vt-inputrow");
-  const input = document.createElement("input");
-  input.className = "vt-input";
-  input.placeholder = t2("chatPlaceholder");
-  const sendBtn = el("button", "vt-btn");
-  sendBtn.textContent = t2("send");
-  inputRow.append(input, sendBtn);
-  root2.appendChild(inputRow);
-  for (const entry of engine2.log()) addMsg(entry.who, entry.text);
-  function renderStage() {
-    const st = engine2.state();
-    stageEmpty.replaceChildren();
-    const at = engine2.characterAt();
-    if (st.model && at === "panel") {
-      stageEmpty.style.display = "none";
-      engine2.renderer.attach(stage);
-      return;
-    }
-    engine2.renderer.detach(stage);
-    stageEmpty.style.display = "flex";
-    if (st.model && at !== "panel") {
-      stageEmpty.textContent = t2("mascotHolds");
-      return;
-    }
-    const card = el("div", "vt-card");
-    if (!st.cubism) {
-      card.append(p2(t2("cubismNotice")));
-      const link = document.createElement("a");
-      link.href = CUBISM_LICENSE_URL;
-      link.target = "_blank";
-      link.textContent = t2("cubismLicenseLink");
-      card.appendChild(link);
-      const btn = el("button", "vt-btn");
-      btn.textContent = t2("cubismAccept");
-      btn.onclick = async () => {
-        btn.disabled = true;
-        try {
-          await engine2.installCubism(true);
-        } catch (e2) {
-          card.appendChild(errP(e2));
-        } finally {
-          btn.disabled = false;
-        }
-      };
-      card.appendChild(btn);
-    } else {
-      card.append(p2(t2("modelNone")), p2(t2("modelPathLabel")));
-      const pathInput = document.createElement("input");
-      pathInput.className = "vt-input";
-      pathInput.placeholder = "/path/to/model/xxx.model3.json";
-      const cur = engine2.configuredModelPath();
-      if (cur) pathInput.value = cur;
-      const btn = el("button", "vt-btn");
-      btn.textContent = t2("modelLoad");
-      btn.onclick = async () => {
-        btn.disabled = true;
-        try {
-          await engine2.loadModel(pathInput.value.trim());
-        } catch (e2) {
-          card.appendChild(errP(e2));
-        } finally {
-          btn.disabled = false;
-        }
-      };
-      card.append(pathInput, btn);
-    }
-    stageEmpty.appendChild(card);
-  }
-  function renderToolbar() {
-    const st = engine2.state();
-    ttsBtn.textContent = st.tts ? t2("ttsOn") : t2("ttsOff");
-    mascotBtn.textContent = st.mascot ? t2("mascotOn") : t2("mascotOff");
-    sendBtn.disabled = st.busy;
-    viewCtx.setStatus(st.busy ? { code: "busy", message: "turn in flight" } : null);
-  }
-  async function fillCharacters() {
-    const models = await engine2.listModels();
-    const cur = engine2.state().model;
-    charSel.replaceChildren();
-    const ph = document.createElement("option");
-    ph.value = "";
-    ph.textContent = models.length ? "\uCE90\uB9AD\uD130\u2026" : "\uCE90\uB9AD\uD130 \uC5C6\uC74C(models/)";
-    charSel.appendChild(ph);
-    for (const m2 of models) {
-      const o2 = document.createElement("option");
-      o2.value = m2.path;
-      o2.textContent = m2.name;
-      if (cur === m2.path) o2.selected = true;
-      charSel.appendChild(o2);
-    }
-  }
-  charSel.onchange = () => {
-    const path2 = charSel.value;
-    if (path2) void engine2.loadModel(path2).catch(() => void fillCharacters());
-  };
-  void fillCharacters();
-  ttsBtn.onclick = () => void engine2.setTts(!engine2.state().tts);
-  mascotBtn.onclick = () => void engine2.setMascot(!engine2.state().mascot);
-  stopBtn.onclick = () => void engine2.stop();
-  async function send() {
-    const text = input.value.trim();
-    if (!text || engine2.state().busy) return;
-    input.value = "";
-    try {
-      await engine2.chat(text);
-    } catch {
-    }
-  }
-  sendBtn.onclick = () => void send();
-  input.onkeydown = (e2) => {
-    if (e2.key === "Enter" && !e2.isComposing) void send();
-  };
-  function addMsg(who, text) {
-    const m2 = el("div", `vt-msg ${who}`);
-    m2.textContent = text;
-    chat.appendChild(m2);
-    chat.scrollTop = chat.scrollHeight;
-  }
-  const sub = engine2.on((e2) => {
-    if (e2.kind === "chat") addMsg(e2.entry.who, e2.entry.text);
-    if (e2.kind === "subtitle") subtitle.textContent = e2.text;
-    if (e2.kind === "state") {
-      renderToolbar();
-      renderStage();
-      void fillCharacters();
-    }
-  });
-  renderToolbar();
-  renderStage();
-  mounts.set(container, {
-    dispose() {
-      sub.dispose();
-      engine2.renderer.detach(stage);
-      viewCtx.setStatus(null);
-    }
-  });
-}
-function unmountPanel(container) {
-  mounts.get(container)?.dispose();
-  mounts.delete(container);
-}
-function el(tag, cls) {
-  const e2 = document.createElement(tag);
-  e2.className = cls;
-  return e2;
-}
-function p2(text) {
-  const e2 = document.createElement("p");
-  e2.textContent = text;
-  return e2;
-}
-function errP(e2) {
-  const el2 = document.createElement("p");
-  el2.className = "vt-err";
-  el2.textContent = String(e2 instanceof Error ? e2.message : e2);
-  return el2;
-}
-
 // src/commands.ts
 var VERSION3 = "1.0.0";
 function registerCommands(ctx, engine2, mascot2) {
@@ -42095,12 +41454,12 @@ function registerCommands(ctx, engine2, mascot2) {
   const reg = (name, spec) => ctx.subscriptions.push(app.commands.register(name, spec));
   reg("ping", {
     description: "Health check \u2014 plugin load/version probe (E2E).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD50C\uB7EC\uADF8\uC778 \uC0C1\uD0DC \uC810\uAC80 \uD551" },
-    handler: () => ({ ok: true, plugin: "soksak-plugin-vtuber", version: VERSION3 })
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD50C\uB7EC\uADF8\uC778 \uC0C1\uD0DC \uC810\uAC80 \uD551" },
+    handler: () => ({ ok: true, plugin: "soksak-plugin-vtube-tts", version: VERSION3 })
   });
   reg("state", {
     description: "Read current plugin state: cubism runtime, loaded model, expressions, emotion map, mascot/tts/speaking/busy flags.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uC0C1\uD0DC \uC870\uD68C \uBAA8\uB378 \uB9C8\uC2A4\uCF54\uD2B8 \uC74C\uC131" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uC0C1\uD0DC \uC870\uD68C \uBAA8\uB378 \uB9C8\uC2A4\uCF54\uD2B8 \uC74C\uC131" },
     params: {
       probe: {
         type: "boolean",
@@ -42119,12 +41478,12 @@ function registerCommands(ctx, engine2, mascot2) {
       }
     },
     returns: "state object",
-    handler: async (p3) => {
+    handler: async (p2) => {
       const st = engine2.state();
-      const probe = p3.probe === true ? await engine2.renderer.probePixels() : void 0;
-      const png = p3.png === true ? await engine2.renderer.probePng() : void 0;
-      const voices = p3.voices === true ? engine2.listVoices() : void 0;
-      const mouth = p3.probe === true ? engine2.renderer.mouthDiag() : void 0;
+      const probe = p2.probe === true ? await engine2.renderer.probePixels() : void 0;
+      const png = p2.png === true ? await engine2.renderer.probePng() : void 0;
+      const voices = p2.voices === true ? engine2.listVoices() : void 0;
+      const mouth = p2.probe === true ? engine2.renderer.mouthDiag() : void 0;
       return {
         ok: true,
         ...st,
@@ -42135,39 +41494,28 @@ function registerCommands(ctx, engine2, mascot2) {
       };
     }
   });
-  reg("chat", {
-    description: "Send one chat turn to the local agent (claude via acp). Streams sentences to speech/expressions; resolves with the full reply.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uCE90\uB9AD\uD130\uC640 \uB300\uD654 \uCC44\uD305 \uB9D0\uAC78\uAE30" },
-    params: {
-      text: { type: "string", description: "user message", required: true }
-    },
-    returns: "{ ok, reply, utterances:[{text, emotion}] }",
-    examples: [`sok plugin.soksak-plugin-vtuber.chat '{"text":"\uC548\uB155!"}'`],
-    handler: async (p3) => {
-      const text = String(p3.text ?? "").trim();
-      if (!text) return { ok: false, error: "text required" };
-      const r2 = await engine2.chat(text);
-      return { ok: true, reply: r2.reply, utterances: r2.utterances, timing: r2.timing };
-    }
-  });
   reg("say", {
+    // 낭독 수행 명령 — 실행 기록이 다시 낭독되면 무한 전파. 스펙 차원의 유일한 차단점.
+    tts: false,
     description: "Speak text locally without the LLM \u2014 runs the sentence/emotion/speech pipeline. Emotion tags like [joy] are honored.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uB300\uC0AC \uBC1C\uD654 \uB9D0\uD558\uAE30 \uC790\uB9C9" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB300\uC0AC \uBC1C\uD654 \uB9D0\uD558\uAE30 \uC790\uB9C9" },
     params: {
       text: { type: "string", description: "text to speak (may contain [emotion] tags)", required: true }
     },
     returns: "{ ok, utterances:[{text, emotion}] }",
-    examples: [`sok plugin.soksak-plugin-vtuber.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
-    handler: (p3) => {
-      const text = String(p3.text ?? "").trim();
+    examples: [`sok plugin.soksak-plugin-vtube-tts.say '{"text":"[joy] \uBC18\uAC00\uC6CC\uC694!"}'`],
+    handler: (p2) => {
+      const text = String(p2.text ?? "").trim();
       if (!text) return { ok: false, error: "text required" };
       const utterances = engine2.speakText(text);
       return { ok: true, utterances };
     }
   });
   reg("stop", {
-    description: "Stop current speech and cancel the in-flight agent turn.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
+    tts: false,
+    // 낭독 제어 계열 — say 와 동일하게 침묵
+    description: "Stop current speech.",
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBC1C\uD654 \uC911\uB2E8 \uC815\uC9C0" },
     handler: async () => {
       await engine2.stop();
       return { ok: true };
@@ -42175,7 +41523,7 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("cubism.install", {
     description: "Download and cache the proprietary Live2D Cubism Core runtime from the official CDN. Requires accept=true (license consent).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD050\uBE44\uC998 \uCF54\uC5B4 \uC124\uCE58 \uB2E4\uC6B4\uB85C\uB4DC \uB77C\uC774\uC120\uC2A4 \uB3D9\uC758" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD050\uBE44\uC998 \uCF54\uC5B4 \uC124\uCE58 \uB2E4\uC6B4\uB85C\uB4DC \uB77C\uC774\uC120\uC2A4 \uB3D9\uC758" },
     params: {
       accept: {
         type: "boolean",
@@ -42183,34 +41531,34 @@ function registerCommands(ctx, engine2, mascot2) {
         required: true
       }
     },
-    handler: async (p3) => {
-      await engine2.installCubism(p3.accept === true);
+    handler: async (p2) => {
+      await engine2.installCubism(p2.accept === true);
       return { ok: true, cubism: true };
     }
   });
   reg("model.list", {
     description: "List Live2D characters found under the models directory (modelsDir setting; default = <plugin>/models).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uCE90\uB9AD\uD130 \uBAA9\uB85D \uBAA8\uB378 \uC2A4\uCE94" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uCE90\uB9AD\uD130 \uBAA9\uB85D \uBAA8\uB378 \uC2A4\uCE94" },
     returns: "{ ok, models: [{name, path}] }",
     handler: async () => ({ ok: true, models: await engine2.listModels() })
   });
   reg("model.load", {
     description: "Load a Live2D Cubism 3+ model from a local .model3.json path (user-owned model).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uB77C\uC774\uBE0C2D \uBAA8\uB378 \uB85C\uB4DC \uBD88\uB7EC\uC624\uAE30 \uAD50\uCCB4" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB77C\uC774\uBE0C2D \uBAA8\uB378 \uB85C\uB4DC \uBD88\uB7EC\uC624\uAE30 \uAD50\uCCB4" },
     params: {
       path: { type: "string", description: "absolute path to .model3.json", required: true }
     },
     returns: "{ ok, path, expressions, motionGroups }",
-    examples: [`sok plugin.soksak-plugin-vtuber.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
-    handler: async (p3) => {
-      const info = await engine2.loadModel(String(p3.path ?? ""));
+    examples: [`sok plugin.soksak-plugin-vtube-tts.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
+    handler: async (p2) => {
+      const info = await engine2.loadModel(String(p2.path ?? ""));
       mascot2.sync();
       return { ok: true, ...info };
     }
   });
   reg("expression.list", {
     description: "List expressions defined by the loaded model, plus the active emotion\u2192expression map.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD45C\uC815 \uBAA9\uB85D \uC870\uD68C" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD45C\uC815 \uBAA9\uB85D \uC870\uD68C" },
     handler: () => {
       const st = engine2.state();
       if (!st.model) return { ok: false, error: "no model loaded" };
@@ -42219,12 +41567,12 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("expression.set", {
     description: "Apply an expression by model expression name, or an emotion name (mapped via emotion map). 'neutral' resets.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uD45C\uC815 \uC801\uC6A9 \uBCC0\uACBD" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD45C\uC815 \uC801\uC6A9 \uBCC0\uACBD" },
     params: {
       name: { type: "string", description: "expression name or emotion (e.g. joy)", required: true }
     },
-    handler: async (p3) => {
-      const name = String(p3.name ?? "");
+    handler: async (p2) => {
+      const name = String(p2.name ?? "");
       const st = engine2.state();
       if (!st.model) return { ok: false, error: "no model loaded" };
       const target = DEFAULT_EMOTIONS.includes(name) ? name === "neutral" ? "neutral" : st.emotionMap[name] ?? "neutral" : name;
@@ -42234,12 +41582,12 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("emotion.map", {
     description: "Set emotion\u2192expression mapping for the loaded model. Keys must be known emotions; values must be model expression names.",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uAC10\uC815 \uD45C\uC815 \uB9E4\uD551 \uC124\uC815" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uAC10\uC815 \uD45C\uC815 \uB9E4\uD551 \uC124\uC815" },
     params: {
       map: { type: "json", description: 'e.g. {"joy":"F01","anger":"F03"}', required: true }
     },
-    handler: async (p3) => {
-      const map4 = p3.map;
+    handler: async (p2) => {
+      const map4 = p2.map;
       if (!map4 || typeof map4 !== "object") return { ok: false, error: "map (json object) required" };
       await engine2.setEmotionMap(map4);
       return { ok: true, emotionMap: map4 };
@@ -42247,30 +41595,30 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("motion.play", {
     description: 'Play a model motion. group = a Motions group from the model (often "Idle" and "" for tap motions); omit index for a random one in the group.',
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uBAA8\uC158 \uC7AC\uC0DD \uB3D9\uC791 \uC6C0\uC9C1\uC784" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uBAA8\uC158 \uC7AC\uC0DD \uB3D9\uC791 \uC6C0\uC9C1\uC784" },
     params: {
       group: { type: "string", description: 'motion group name ("" = default group)', required: false },
       index: { type: "number", description: "motion index within the group (omit = random)", required: false }
     },
-    examples: [`sok plugin.soksak-plugin-vtuber.motion.play '{"group":""}'`],
-    handler: async (p3) => {
+    examples: [`sok plugin.soksak-plugin-vtube-tts.motion.play '{"group":""}'`],
+    handler: async (p2) => {
       const st = engine2.state();
       if (!st.model) return { ok: false, error: "no model loaded" };
-      const group = typeof p3.group === "string" ? p3.group : "";
-      const index = typeof p3.index === "number" ? p3.index : void 0;
+      const group = typeof p2.group === "string" ? p2.group : "";
+      const index = typeof p2.index === "number" ? p2.index : void 0;
       const played = await engine2.renderer.playMotion(group, index);
       return { ok: played, group, ...index !== void 0 ? { index } : {} };
     }
   });
   reg("mascot.toggle", {
     description: "Toggle the screen mascot overlay (avatar floats over the whole app, click-through).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uB9C8\uC2A4\uCF54\uD2B8 \uD654\uBA74 \uC624\uBC84\uB808\uC774 \uCF1C\uAE30 \uB044\uAE30" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uB9C8\uC2A4\uCF54\uD2B8 \uD654\uBA74 \uC624\uBC84\uB808\uC774 \uCF1C\uAE30 \uB044\uAE30" },
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false }
     },
-    handler: async (p3) => {
+    handler: async (p2) => {
       const cur = engine2.state().mascot;
-      const next = typeof p3.on === "boolean" ? p3.on : !cur;
+      const next = typeof p2.on === "boolean" ? p2.on : !cur;
       await engine2.setMascot(next);
       mascot2.sync();
       return { ok: true, mascot: next };
@@ -42278,13 +41626,13 @@ function registerCommands(ctx, engine2, mascot2) {
   });
   reg("tts.toggle", {
     description: "Toggle speech output (subtitles always shown).",
-    triggers: { ko: "\uBE0C\uC774\uD29C\uBC84 \uC74C\uC131 \uCD9C\uB825 \uCF1C\uAE30 \uB044\uAE30 \uD1A0\uAE00" },
+    triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uC74C\uC131 \uCD9C\uB825 \uCF1C\uAE30 \uB044\uAE30 \uD1A0\uAE00" },
     params: {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false }
     },
-    handler: async (p3) => {
+    handler: async (p2) => {
       const cur = engine2.state().tts;
-      const next = typeof p3.on === "boolean" ? p3.on : !cur;
+      const next = typeof p2.on === "boolean" ? p2.on : !cur;
       await engine2.setTts(next);
       return { ok: true, tts: next };
     }
@@ -42297,7 +41645,7 @@ var mascot = null;
 var main_default = {
   activate(ctx) {
     const app = ctx.app;
-    engine = new VtuberEngine(app, ctx.dir ?? "");
+    engine = new VtubeTtsEngine(app, ctx.dir ?? "");
     mascot = new MascotOverlay(engine);
     ctx.subscriptions.push({
       dispose() {
@@ -42307,18 +41655,8 @@ var main_default = {
         engine = null;
       }
     });
-    ctx.subscriptions.push(
-      app.ui.registerView("vtuber", {
-        mount(container, viewCtx) {
-          if (engine) mountPanel(container, viewCtx, engine);
-        },
-        unmount(container) {
-          unmountPanel(container);
-        }
-      })
-    );
     registerCommands(ctx, engine, mascot);
-    void engine.init().then(() => mascot?.sync()).catch((e2) => console.error("[vtuber] init \uC2E4\uD328:", e2));
+    void engine.init().then(() => mascot?.sync()).catch((e2) => console.error("[vtube-tts] init \uC2E4\uD328:", e2));
     ctx.subscriptions.push(
       engine.on((e2) => {
         if (e2.kind === "state") mascot?.sync();

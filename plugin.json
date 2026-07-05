@@ -1,31 +1,27 @@
 {
   "spec": "soksak-spec-plugin@0.0.1",
-  "id": "soksak-plugin-vtuber",
+  "id": "soksak-plugin-vtube-tts",
   "name": {
-    "en": "VTuber",
-    "ko": "브이튜버"
+    "en": "VTube TTS",
+    "ko": "브이튜브 TTS"
   },
   "version": "0.0.1",
-  "repo": "https://github.com/soksak-ai/soksak-plugin-vtuber.git",
+  "repo": "https://github.com/soksak-ai/soksak-plugin-vtube-tts.git",
   "description": {
-    "en": "Live2D avatar companion — chat with a local AI agent; the avatar reacts with expressions, subtitles, and speech. Panel view and screen mascot overlay. Bring your own Live2D model (.model3.json).",
-    "ko": "Live2D 아바타 컴패니언 — 로컬 AI 에이전트와 대화하면 아바타가 표정·자막·음성으로 반응한다. 패널 뷰와 화면 마스코트 오버레이. Live2D 모델(.model3.json)은 사용자가 지정."
+    "en": "Character presentation engine — a Live2D mascot overlay with local neural TTS, measured lip-sync, expressions and motions. No views of its own: other plugins (activity log, chat UIs) drive it through commands (say/expression/motion/mascot).",
+    "ko": "캐릭터 표현 엔진 — Live2D 마스코트 오버레이 + 로컬 신경 TTS, 실측 립싱크, 표정·모션. 자체 뷰 없음: 다른 플러그인(활동로그·대화 UI)이 커맨드(say/expression/motion/mascot)로 구동한다."
   },
   "entry": "main.js",
   "permissions": [
     "ui",
     "ui:overlay:screen",
     "commands",
-    "programs",
     "process",
     "network",
     "data",
     "notify",
     "fs:read"
   ],
-  "dependencies": {
-    "soksak-plugin-agents-acp": "^0.1.0"
-  },
   "configuration": [
     {
       "key": "modelPath",
@@ -51,56 +47,6 @@
       "description": {
         "en": "Directory scanned for Live2D characters (recursively finds *.model3.json). Empty = the plugin's models/ folder. Pick a character in the VTuber panel toolbar.",
         "ko": "Live2D 캐릭터 스캔 디렉토리(*.model3.json 재귀 탐색). 비우면 플러그인의 models/ 폴더. 선택은 브이튜버 패널 툴바에서."
-      }
-    },
-    {
-      "key": "agent",
-      "type": "enum",
-      "default": "claude",
-      "enum": [
-        "claude",
-        "claude-bare",
-        "codex",
-        "gemini"
-      ],
-      "enumLabels": [
-        {
-          "en": "Claude (acp)",
-          "ko": "Claude (acp)"
-        },
-        {
-          "en": "Claude bare (fastest, claude -p)",
-          "ko": "Claude 즉답 (claude -p, 최속)"
-        },
-        {
-          "en": "Codex (ChatGPT)",
-          "ko": "Codex (ChatGPT)"
-        },
-        {
-          "en": "Gemini",
-          "ko": "Gemini"
-        }
-      ],
-      "title": {
-        "en": "Chat agent",
-        "ko": "대화 에이전트"
-      },
-      "description": {
-        "en": "Chat backend. claude-bare runs `claude -p` directly (no hooks/plugins — lowest first-token latency); others go through agents-acp. Switching reconnects on the next turn.",
-        "ko": "대화 백엔드. claude-bare 는 `claude -p` 직행(훅·플러그인 없음 — 첫 토큰 최속), 나머지는 agents-acp 경유. 바꾸면 다음 턴에 재연결."
-      }
-    },
-    {
-      "key": "agentModel",
-      "type": "string",
-      "default": "",
-      "title": {
-        "en": "Agent model",
-        "ko": "에이전트 모델"
-      },
-      "description": {
-        "en": "Model id for the agent session (e.g. gpt-5.4-mini[low] for codex). Empty = agent default. Available ids are printed by the agent's session.",
-        "ko": "에이전트 세션 모델 id (예: codex 는 gpt-5.4-mini[low]). 비우면 에이전트 기본값."
       }
     },
     {
@@ -205,48 +151,12 @@
     }
   ],
   "contributes": {
-    "views": [
-      {
-        "id": "vtuber",
-        "title": {
-          "en": "VTuber",
-          "ko": "브이튜버"
-        },
-        "icon": "🎭",
-        "placements": [
-          "content"
-        ],
-        "defaultPlacement": "content"
-      }
-    ],
-    "programs": [
-      {
-        "id": "vtuber",
-        "title": {
-          "en": "VTuber",
-          "ko": "브이튜버"
-        },
-        "path": {
-          "en": "Utility",
-          "ko": "유틸리티"
-        },
-        "kind": "view",
-        "view": "vtuber"
-      }
-    ],
     "commands": [
       {
         "name": "ping",
         "title": {
           "en": "Pings the plugin",
           "ko": "플러그인 상태를 점검합니다"
-        }
-      },
-      {
-        "name": "chat",
-        "title": {
-          "en": "Sends a chat turn to the agent",
-          "ko": "에이전트와 대화합니다"
         }
       },
       {

@@ -28,7 +28,7 @@ async function injectScript(jsText: string): Promise<void> {
   injecting = new Promise<void>((resolve, reject) => {
     const url = URL.createObjectURL(new Blob([jsText], { type: "text/javascript" }));
     const el = document.createElement("script");
-    el.id = "soksak-vtuber-cubism-core";
+    el.id = "soksak-vtube-tts-cubism-core";
     el.src = url;
     el.onload = () => {
       URL.revokeObjectURL(url);
@@ -55,7 +55,7 @@ export async function ensureFromCache(app: HostApp): Promise<boolean> {
       return true;
     }
   } catch (e) {
-    console.error("[vtuber] cubism 캐시 로드 실패:", e);
+    console.error("[vtube-tts] cubism 캐시 로드 실패:", e);
   }
   return false;
 }

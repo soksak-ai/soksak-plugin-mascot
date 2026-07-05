@@ -86,7 +86,7 @@ class SpeechSidecarProc {
       this.subs.push(
         proc.onData(handle, (bytes: Uint8Array) => this.feed(bytes)),
         proc.onExit(handle, (code: number) => {
-          console.warn("[vtuber] speech sidecar exited:", code);
+          console.warn("[vtube-tts] speech sidecar exited:", code);
           this.failAll(`sidecar exited (${code})`);
           this.teardown(); // 다음 speak 에서 재기동
         }),
@@ -100,7 +100,7 @@ class SpeechSidecarProc {
       void proc.write(handle, JSON.stringify({ id, op: "info" }) + "\n").catch(() => {});
       return true;
     } catch (e) {
-      console.error("[vtuber] speech sidecar spawn 실패:", e);
+      console.error("[vtube-tts] speech sidecar spawn 실패:", e);
       this.teardown();
       return false;
     }
@@ -289,7 +289,7 @@ export class SidecarTts implements TtsEngine {
           },
           onDone: (ok, message) => {
             done = true;
-            if (!ok && message) console.warn("[vtuber] sidecar tts:", message);
+            if (!ok && message) console.warn("[vtube-tts] sidecar tts:", message);
             maybeFinish();
           },
         })
