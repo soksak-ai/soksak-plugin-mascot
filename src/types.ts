@@ -77,6 +77,8 @@ export interface CommandSpec {
   speak?: (out: { ok: boolean; code: string; message: string; data?: Record<string, unknown> }) => string;
   /** 활동 스트림 한 줄 요약(MESSAGE-PROTOCOL) — 성공 data 를 받아 결과 문장을 만든다. */
   message?: (data: Record<string, unknown>) => string;
+  /** 대표 사용 사이클이 있는 커맨드에만 부여 — 다음 단계 제안, 제안 어조, 상한 3(코어와 동형). */
+  hint?: (data: Record<string, unknown>, ctx: Record<string, unknown>) => Array<{ cmd: string; why: string }>;
   triggers?: { ko?: string };
   params?: Record<
     string,

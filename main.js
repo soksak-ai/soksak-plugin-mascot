@@ -41482,6 +41482,7 @@ var MascotOverlay = class {
 
 // src/commands.ts
 var VERSION3 = "1.0.0";
+var cmd = (name) => `plugin.soksak-plugin-mascot.${name}`;
 function registerCommands(ctx, engine2, mascot2) {
   const app = ctx.app;
   if (!app.commands?.register) return;
@@ -41514,6 +41515,11 @@ function registerCommands(ctx, engine2, mascot2) {
     },
     returns: "state object",
     message: (d2) => d2.model ? `\uBAA8\uB378 \uB85C\uB4DC\uB428, \uB9C8\uC2A4\uCF54\uD2B8 ${d2.mascot ? "\uCF1C\uC9D0" : "\uAEBC\uC9D0"}.` : "\uB85C\uB4DC\uB41C \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.",
+    hint: (d2) => {
+      if (!d2.model) return [{ cmd: cmd("model.list"), why: "\uCE90\uB9AD\uD130 \uD3F4\uB354\uC5D0\uC11C \uBAA8\uB378\uC744 \uCC3E\uC544\uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." }];
+      if (!d2.mascot) return [{ cmd: cmd("toggle"), why: "\uB9C8\uC2A4\uCF54\uD2B8\uB97C \uD654\uBA74\uC5D0 \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }];
+      return [];
+    },
     handler: async (p2) => {
       const st = engine2.state();
       const probe = p2.probe === true ? await engine2.renderer.probePixels() : void 0;
@@ -41580,6 +41586,7 @@ function registerCommands(ctx, engine2, mascot2) {
       }
     },
     message: () => "\uD050\uBE44\uC998 \uCF54\uC5B4\uB97C \uC124\uCE58\uD588\uC2B5\uB2C8\uB2E4.",
+    hint: () => [{ cmd: cmd("model.list"), why: "\uC774\uC81C \uCE90\uB9AD\uD130 \uD3F4\uB354\uC5D0\uC11C \uBAA8\uB378\uC744 \uCC3E\uC544\uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4." }],
     handler: async (p2) => {
       await engine2.installCubism(p2.accept === true);
       return { ok: true, cubism: true };
@@ -41590,6 +41597,7 @@ function registerCommands(ctx, engine2, mascot2) {
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uCE90\uB9AD\uD130 \uBAA9\uB85D \uBAA8\uB378 \uC2A4\uCE94" },
     returns: "{ ok, models: [{name, path}] }",
     message: (d2) => `\uCE90\uB9AD\uD130 ${(d2.models ?? []).length}\uAC1C\uB97C \uCC3E\uC558\uC2B5\uB2C8\uB2E4.`,
+    hint: (d2) => (d2.models ?? []).length > 0 ? [{ cmd: cmd("model.load"), why: "\uCC3E\uC740 \uCE90\uB9AD\uD130\uB97C \uBD88\uB7EC\uC62C \uC218 \uC788\uC2B5\uB2C8\uB2E4." }] : [],
     handler: async () => ({ ok: true, models: await engine2.listModels() })
   });
   reg("model.load", {
@@ -41601,6 +41609,10 @@ function registerCommands(ctx, engine2, mascot2) {
     returns: "{ ok, path, expressions, motionGroups }",
     examples: [`sok plugin.soksak-plugin-mascot.model.load '{"path":"/Users/me/models/hiyori/hiyori.model3.json"}'`],
     message: (d2) => `\uBAA8\uB378\uC744 \uBD88\uB7EC\uC654\uC2B5\uB2C8\uB2E4 (\uD45C\uC815 ${(d2.expressions ?? []).length}\uAC1C).`,
+    hint: () => [
+      { cmd: cmd("toggle"), why: "\uB9C8\uC2A4\uCF54\uD2B8\uB97C \uD654\uBA74\uC5D0 \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." },
+      { cmd: cmd("expression.list"), why: "\uC774 \uBAA8\uB378\uC758 \uD45C\uC815 \uBAA9\uB85D\uC744 \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }
+    ],
     handler: async (p2) => {
       const info = await engine2.loadModel(String(p2.path ?? ""));
       mascot2.sync();
@@ -41611,6 +41623,7 @@ function registerCommands(ctx, engine2, mascot2) {
     description: "List expressions defined by the loaded model, plus the active emotion\u2192expression map.",
     triggers: { ko: "\uBE0C\uC774\uD29C\uBE0C \uD45C\uC815 \uBAA9\uB85D \uC870\uD68C" },
     message: (d2) => `\uD45C\uC815 ${(d2.expressions ?? []).length}\uAC1C.`,
+    hint: (d2) => (d2.expressions ?? []).length > 0 ? [{ cmd: cmd("expression.set"), why: "\uD655\uC778\uD55C \uD45C\uC815\uC744 \uC801\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }] : [],
     handler: () => {
       const st = engine2.state();
       if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
@@ -41640,6 +41653,7 @@ function registerCommands(ctx, engine2, mascot2) {
       map: { type: "json", description: 'e.g. {"joy":"F01","anger":"F03"}', required: true }
     },
     message: (d2) => `\uAC10\uC815 \uB9E4\uD551 ${Object.keys(d2.emotionMap ?? {}).length}\uAC74\uC744 \uC124\uC815\uD588\uC2B5\uB2C8\uB2E4.`,
+    hint: () => [{ cmd: cmd("say"), why: "\uAC10\uC815 \uD0DC\uADF8\uAC00 \uB2F4\uAE34 \uB300\uC0AC\uB85C \uB9E4\uD551\uC744 \uD655\uC778\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }],
     handler: async (p2) => {
       const map4 = p2.map;
       if (!map4 || typeof map4 !== "object") return { ok: false, code: "INVALID_INPUT", message: "map (json object) required" };
@@ -41674,6 +41688,7 @@ function registerCommands(ctx, engine2, mascot2) {
       on: { type: "boolean", description: "explicit state; omit to flip", required: false }
     },
     message: (d2) => `\uB9C8\uC2A4\uCF54\uD2B8\uB97C ${d2.mascot ? "\uCF30\uC2B5\uB2C8\uB2E4" : "\uAED0\uC2B5\uB2C8\uB2E4"}.`,
+    hint: (d2) => d2.mascot ? [{ cmd: cmd("say"), why: "\uD654\uBA74\uC5D0 \uBCF4\uC774\uB294 \uB9C8\uC2A4\uCF54\uD2B8\uB85C \uB300\uC0AC\uB97C \uBC1C\uD654\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4." }] : [],
     handler: async (p2) => {
       const cur = engine2.state().mascot;
       const next = typeof p2.on === "boolean" ? p2.on : !cur;

@@ -8,6 +8,9 @@ import { DEFAULT_EMOTIONS } from "@/pipeline";
 
 const VERSION = "1.0.0";
 
+// 완전정규화 커맨드 주소(외부 sok/MCP/소켓 호출 규약) — hint.cmd 조립용.
+const cmd = (name: string) => `plugin.soksak-plugin-mascot.${name}`;
+
 export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: MascotOverlay): void {
   const app = ctx.app;
   if (!app.commands?.register) return;
@@ -44,6 +47,11 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     },
     returns: "state object",
     message: (d) => (d.model ? `모델 로드됨, 마스코트 ${d.mascot ? "켜짐" : "꺼짐"}.` : "로드된 모델이 없습니다."),
+    hint: (d) => {
+      if (!d.model) return [{ cmd: cmd("model.list"), why: "캐릭터 폴더에서 모델을 찾아볼 수 있습니다." }];
+      if (!d.mascot) return [{ cmd: cmd("toggle"), why: "마스코트를 화면에 표시할 수 있습니다." }];
+      return [];
+    },
     handler: async (p) => {
       const st = engine.state();
       const probe = p.probe === true ? await engine.renderer.probePixels() : undefined;
@@ -116,6 +124,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       },
     },
     message: () => "큐비즘 코어를 설치했습니다.",
+    hint: () => [{ cmd: cmd("model.list"), why: "이제 캐릭터 폴더에서 모델을 찾아볼 수 있습니다." }],
     handler: async (p) => {
       await engine.installCubism(p.accept === true);
       return { ok: true, cubism: true };
@@ -128,6 +137,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     triggers: { ko: "브이튜브 캐릭터 목록 모델 스캔" },
     returns: "{ ok, models: [{name, path}] }",
     message: (d) => `캐릭터 ${((d.models as unknown[]) ?? []).length}개를 찾았습니다.`,
+    hint: (d) =>
+      ((d.models as unknown[]) ?? []).length > 0
+        ? [{ cmd: cmd("model.load"), why: "찾은 캐릭터를 불러올 수 있습니다." }]
+        : [],
     handler: async () => ({ ok: true, models: await engine.listModels() }),
   });
 
@@ -140,6 +153,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     returns: "{ ok, path, expressions, motionGroups }",
     examples: ['sok plugin.soksak-plugin-mascot.model.load \'{"path":"/Users/me/models/hiyori/hiyori.model3.json"}\''],
     message: (d) => `모델을 불러왔습니다 (표정 ${((d.expressions as unknown[]) ?? []).length}개).`,
+    hint: () => [
+      { cmd: cmd("toggle"), why: "마스코트를 화면에 표시할 수 있습니다." },
+      { cmd: cmd("expression.list"), why: "이 모델의 표정 목록을 확인할 수 있습니다." },
+    ],
     handler: async (p) => {
       const info = await engine.loadModel(String(p.path ?? ""));
       mascot.sync();
@@ -151,6 +168,10 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
     description: "List expressions defined by the loaded model, plus the active emotion→expression map.",
     triggers: { ko: "브이튜브 표정 목록 조회" },
     message: (d) => `표정 ${((d.expressions as unknown[]) ?? []).length}개.`,
+    hint: (d) =>
+      ((d.expressions as unknown[]) ?? []).length > 0
+        ? [{ cmd: cmd("expression.set"), why: "확인한 표정을 적용할 수 있습니다." }]
+        : [],
     handler: () => {
       const st = engine.state();
       if (!st.model) return { ok: false, code: "NO_MODEL", message: "no model loaded" };
@@ -188,6 +209,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       map: { type: "json", description: 'e.g. {"joy":"F01","anger":"F03"}', required: true },
     },
     message: (d) => `감정 매핑 ${Object.keys((d.emotionMap as Record<string, unknown>) ?? {}).length}건을 설정했습니다.`,
+    hint: () => [{ cmd: cmd("say"), why: "감정 태그가 담긴 대사로 매핑을 확인할 수 있습니다." }],
     handler: async (p) => {
       const map = p.map as Record<string, string>;
       if (!map || typeof map !== "object") return { ok: false, code: "INVALID_INPUT", message: "map (json object) required" };
@@ -224,6 +246,7 @@ export function registerCommands(ctx: PluginCtx, engine: MascotEngine, mascot: M
       on: { type: "boolean", description: "explicit state; omit to flip", required: false },
     },
     message: (d) => `마스코트를 ${d.mascot ? "켰습니다" : "껐습니다"}.`,
+    hint: (d) => (d.mascot ? [{ cmd: cmd("say"), why: "화면에 보이는 마스코트로 대사를 발화할 수 있습니다." }] : []),
     handler: async (p) => {
       const cur = engine.state().mascot;
       const next = typeof p.on === "boolean" ? p.on : !cur;
