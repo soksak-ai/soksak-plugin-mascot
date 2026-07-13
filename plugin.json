@@ -151,7 +151,10 @@
     }
   ],
   "implements": [
-    "soksak-narration-spec@1"
+    {
+      "id": "soksak-spec-plugin-narration",
+      "version": "0.0.1"
+    }
   ],
   "contributes": {
     "commands": [

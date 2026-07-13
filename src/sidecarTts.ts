@@ -1,4 +1,4 @@
-// 사이드카 TTS — soksak-sidecar-speech-sherpa(stdio JSON-lines, soksak-sidecar-speech-spec@1)를
+// 사이드카 TTS — soksak-sidecar-speech-sherpa(stdio JSON-lines, soksak-spec-sidecar-speech)를
 // app.process 로 상주시키고, stream:true 청크(s16le PCM)를 Web Audio 로 이어붙여 재생한다.
 // 립싱크는 AnalyserNode 실측 진폭(재생과 동기) — OS TTS 폴백만 의사 파형을 쓴다.
 import type { Disposable, HostApp } from "@/types";
