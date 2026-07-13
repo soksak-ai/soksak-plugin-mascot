@@ -150,6 +150,9 @@
       }
     }
   ],
+  "implements": [
+    "soksak-narration-spec@1"
+  ],
   "contributes": {
     "commands": [
       {
