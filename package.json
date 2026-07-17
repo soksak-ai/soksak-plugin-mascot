@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "soksak 브이튜브 TTS — 캐릭터 표현 엔진(마스코트+음성, 뷰 없음)",
+  "description": "soksak \ube0c\uc774\ud29c\ube0c TTS \u2014 \uce90\ub9ad\ud130 \ud45c\ud604 \uc5d4\uc9c4(\ub9c8\uc2a4\ucf54\ud2b8+\uc74c\uc131, \ubdf0 \uc5c6\uc74c)",
   "scripts": {
     "build": "tsc --noEmit && node build.mjs",
     "prepublishOnly": "npm run build && npx --yes soksak-plugin-doctor .",
@@ -22,5 +22,11 @@
     "esbuild": "^0.24.2",
     "typescript": "~5.9.3",
     "vitest": "^2.1.8"
+  },
+  "soksakRelease": {
+    "kind": "plugin",
+    "id": "soksak-plugin-mascot",
+    "repository": "https://github.com/soksak-ai/soksak-plugin-mascot",
+    "manifest": "release.json"
   }
 }
