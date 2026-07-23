@@ -32,7 +32,7 @@ export const GLOBAL_CSS = `
 }
 .vt-btn:hover { background: rgba(255,255,255,.18); }
 .vt-btn[disabled] { opacity: .5; cursor: default; }
-.vt-toolbar { display: flex; gap: 6px; padding: 6px 8px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); }
+.vt-toolbar { display: flex; gap: 6px; height: var(--toolbar-h, 28px); padding: 0 var(--toolbar-pad-x, 8px); align-items: center; border-bottom: 1px solid rgba(255,255,255,.08); }
 .vt-toolbar .vt-btn { padding: 4px 9px; font-size: 12px; }
 .vt-card {
   margin: 14px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.05);
